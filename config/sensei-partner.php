@@ -10,8 +10,12 @@ return [
     | Keys starting with 'sk_' are secret keys and should never be exposed.
     | Keys starting with 'pk_' are public keys and can be used client-side.
     |
+    | Supports both env variable names:
+    |   - SENSEI_API_KEY (recommended, matches backend output)
+    |   - SENSEI_PARTNER_API_KEY (legacy)
+    |
     */
-    'api_key' => env('SENSEI_PARTNER_API_KEY'),
+    'api_key' => env('SENSEI_API_KEY', env('SENSEI_PARTNER_API_KEY')),
 
     /*
     |--------------------------------------------------------------------------
@@ -22,7 +26,7 @@ return [
     | when authenticating on behalf of a specific partner user.
     |
     */
-    'bearer_token' => env('SENSEI_PARTNER_BEARER_TOKEN'),
+    'bearer_token' => env('SENSEI_BEARER_TOKEN', env('SENSEI_PARTNER_BEARER_TOKEN')),
 
     /*
     |--------------------------------------------------------------------------
@@ -32,8 +36,23 @@ return [
     | The base URL of the Sensei API. In production, this should be the main
     | API URL. For testing, you can use the staging URL.
     |
+    | Supports both env variable names:
+    |   - SENSEI_API_URL (recommended, matches backend output)
+    |   - SENSEI_PARTNER_BASE_URL (legacy)
+    |
     */
-    'base_url' => env('SENSEI_PARTNER_BASE_URL', 'https://api.senseitemple.com'),
+    'base_url' => env('SENSEI_API_URL', env('SENSEI_PARTNER_BASE_URL', 'https://api.senseitemple.com')),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Environment
+    |--------------------------------------------------------------------------
+    |
+    | The Sensei environment: 'sandbox' for testing, 'production' for live.
+    | This is used for logging and debugging purposes.
+    |
+    */
+    'environment' => env('SENSEI_ENVIRONMENT', 'production'),
 
     /*
     |--------------------------------------------------------------------------
