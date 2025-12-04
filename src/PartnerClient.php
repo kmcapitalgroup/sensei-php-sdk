@@ -35,6 +35,7 @@ use Sensei\PartnerSDK\Resources\Products;
 use Sensei\PartnerSDK\Resources\Profile;
 use Sensei\PartnerSDK\Resources\Reviews;
 use Sensei\PartnerSDK\Resources\Settings;
+use Sensei\PartnerSDK\Resources\Sso;
 use Sensei\PartnerSDK\Resources\StripeConnect;
 use Sensei\PartnerSDK\Resources\Subscriptions;
 use Sensei\PartnerSDK\Resources\Users;
@@ -62,6 +63,7 @@ use Sensei\PartnerSDK\Resources\Webhooks;
  * @property-read Profile $profile Partner profile management
  * @property-read Reviews $reviews Product reviews and ratings
  * @property-read Settings $settings Partner settings
+ * @property-read Sso $sso SSO/OAuth configuration
  * @property-read StripeConnect $stripeConnect Stripe Connect integration
  * @property-read Subscriptions $subscriptions Subscription management
  * @property-read Users $users User/customer management
@@ -333,6 +335,7 @@ class PartnerClient
             'profile' => Profile::class,
             'reviews' => Reviews::class,
             'settings' => Settings::class,
+            'sso' => Sso::class,
             'stripeConnect' => StripeConnect::class,
             'subscriptions' => Subscriptions::class,
             'users' => Users::class,

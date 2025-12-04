@@ -300,6 +300,117 @@ $client->stripeConnect->addBankAccount([
 ]);
 ```
 
+### SSO / OAuth 2.0
+
+Enable Single Sign-On for seamless authentication between your platform and Sensei Temple.
+Implements OAuth 2.0 with mandatory PKCE (RFC 7636) for enhanced security.
+
+```php
+// =====================================
+// SSO Settings Management
+// =====================================
+
+// Get current SSO settings and stats
+$response = $client->sso->getSettings();
+// $response['settings'] - SSO configuration
+// $response['stats'] - Usage statistics
+
+// Enable SSO for your tenant
+// If no credentials exist, they will be auto-generated
+// WARNING: client_secret is only shown ONCE when first enabled!
+$result = $client->sso->enable();
+if (isset($result['settings']['client_secret'])) {
+    // Save this immediately - it won't be shown again!
+    $clientSecret = $result['settings']['client_secret'];
+}
+
+// Disable SSO
+$client->sso->disable();
+
+// Toggle SSO
+$client->sso->toggle(true);  // or false
+
+// Rotate client secret only (keeps client_id)
+// WARNING: client_secret is only shown ONCE!
+$result = $client->sso->regenerateSecret();
+$newSecret = $result['settings']['client_secret']; // Save immediately!
+
+// Manage redirect URIs
+$client->sso->addRedirectUri('https://newapp.com/callback');
+$client->sso->removeRedirectUri('https://oldapp.com/callback');
+$client->sso->setRedirectUris([
+    'https://app1.com/callback',
+    'https://app2.com/callback',
+]);
+
+// Get SSO statistics
+$stats = $client->sso->getStats();
+// $stats['stats']['total_connections']
+// $stats['stats']['active_users']
+// $stats['stats']['last_30_days']
+
+// =====================================
+// OAuth 2.0 Flow Implementation
+// =====================================
+
+// Step 1: Generate PKCE parameters
+$pkce = \Sensei\PartnerSDK\Resources\Sso::generatePkce();
+// Store $pkce['code_verifier'] in session for later use!
+session(['pkce_verifier' => $pkce['code_verifier']]);
+
+// Step 2: Build authorization URL and redirect user
+$authUrl = $client->sso->buildAuthorizationUrl(
+    clientId: 'sensei_your_client_id',
+    redirectUri: 'https://myapp.com/auth/callback',
+    codeChallenge: $pkce['code_challenge'],
+    scopes: ['openid', 'profile', 'email'],
+    state: bin2hex(random_bytes(16))  // CSRF protection
+);
+// Redirect user to $authUrl
+
+// Step 3: Handle callback - Exchange code for tokens
+$tokens = $client->sso->exchangeCode(
+    code: $request->get('code'),
+    clientId: 'sensei_your_client_id',
+    clientSecret: 'your_client_secret',
+    redirectUri: 'https://myapp.com/auth/callback',
+    codeVerifier: session('pkce_verifier')
+);
+// $tokens['access_token']
+// $tokens['refresh_token'] (if enabled)
+// $tokens['expires_in']
+
+// Step 4: Get user info
+$userInfo = $client->sso->getUserInfo($tokens['access_token']);
+// $userInfo['sub'] - User ID
+// $userInfo['name'] - (if profile scope)
+// $userInfo['email'] - (if email scope)
+
+// Refresh token when expired
+$newTokens = $client->sso->refreshToken(
+    refreshToken: $tokens['refresh_token'],
+    clientId: 'sensei_your_client_id',
+    clientSecret: 'your_client_secret'
+);
+
+// Revoke token (logout)
+$client->sso->revokeToken($tokens['access_token'], 'access_token');
+$client->sso->revokeToken($tokens['refresh_token'], 'refresh_token');
+
+// Get OpenID Connect discovery URL
+$discoveryUrl = $client->sso->getDiscoveryUrl();
+// Returns: https://api.senseitemple.com/.well-known/openid-configuration
+```
+
+#### SSO Security Best Practices
+
+1. **Always use PKCE** - The SDK enforces PKCE with S256 method (mandatory)
+2. **Use state parameter** - Protect against CSRF attacks
+3. **Store tokens securely** - Never expose tokens in URLs or logs
+4. **Short-lived access tokens** - Default 15 min, max 1 hour
+5. **Use HTTPS redirect URIs** - Required in production
+6. **Rotate secrets regularly** - Use `regenerateSecret()` periodically
+
 ### API Keys
 
 Manage your API keys for integrations.

@@ -14,6 +14,7 @@ use Sensei\PartnerSDK\Resources\Payments;
 use Sensei\PartnerSDK\Resources\Products;
 use Sensei\PartnerSDK\Resources\Profile;
 use Sensei\PartnerSDK\Resources\Settings;
+use Sensei\PartnerSDK\Resources\Sso;
 use Sensei\PartnerSDK\Resources\StripeConnect;
 use Sensei\PartnerSDK\Resources\Subscriptions;
 use Sensei\PartnerSDK\Resources\Users;
@@ -28,6 +29,7 @@ use Sensei\PartnerSDK\Resources\Webhooks;
  * @method static Products products()
  * @method static Profile profile()
  * @method static Settings settings()
+ * @method static Sso sso()
  * @method static StripeConnect stripeConnect()
  * @method static Subscriptions subscriptions()
  * @method static Users users()
