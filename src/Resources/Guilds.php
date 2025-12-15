@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Guilds extends Resource
 {
-    protected string $basePath = 'partner/guilds';
+    protected string $basePath = 'v1/partners/guilds';
 
     /**
      * List all guilds

@@ -11,7 +11,7 @@ namespace Sensei\PartnerSDK\Resources;
  */
 class Dashboard extends Resource
 {
-    protected string $basePath = 'partner/dashboard';
+    protected string $basePath = 'v1/partners/dashboard';
 
     /**
      * Get dashboard overview

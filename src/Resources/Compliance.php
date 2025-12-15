@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Compliance extends Resource
 {
-    protected string $basePath = 'partner/compliance';
+    protected string $basePath = 'v1/partners/compliance';
 
     // === GDPR ===
 

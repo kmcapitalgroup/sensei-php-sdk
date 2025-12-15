@@ -11,7 +11,7 @@ namespace Sensei\PartnerSDK\Resources;
  */
 class Profile extends Resource
 {
-    protected string $basePath = 'partner/profile';
+    protected string $basePath = 'v1/partners/profile';
 
     /**
      * Get partner profile

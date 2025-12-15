@@ -41,7 +41,7 @@ return [
     |   - SENSEI_PARTNER_BASE_URL (legacy)
     |
     */
-    'base_url' => env('SENSEI_API_URL', env('SENSEI_PARTNER_BASE_URL', 'https://api.senseitemple.com')),
+    'base_url' => env('SENSEI_API_URL', env('SENSEI_PARTNER_BASE_URL', 'https://api.senseitemple.com/api')),
 
     /*
     |--------------------------------------------------------------------------

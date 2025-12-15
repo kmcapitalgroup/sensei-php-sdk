@@ -11,7 +11,7 @@ namespace Sensei\PartnerSDK\Resources;
  */
 class Settings extends Resource
 {
-    protected string $basePath = 'partner/settings';
+    protected string $basePath = 'v1/partners/settings';
 
     /**
      * Get all settings

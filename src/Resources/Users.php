@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Users extends Resource
 {
-    protected string $basePath = 'partner/users';
+    protected string $basePath = 'v1/partners/users';
 
     /**
      * List all users/customers
@@ -310,5 +310,47 @@ class Users extends Resource
     public function lifetimeValue(int $userId): array
     {
         return $this->client->get($this->path("{$userId}/ltv"));
+    }
+
+    /**
+     * Signup and link a new user to the partner's tenant
+     *
+     * This method creates a new user account and automatically links them
+     * to the partner's tenant guild. Used for white-label partner integrations.
+     *
+     * IMPORTANT: This endpoint requires Partner API Key authentication.
+     * The user is automatically verified and linked to the partner's tenant.
+     *
+     * @param array $data User registration data:
+     *   - name (required): User's full name
+     *   - email (required): User's email address
+     *   - password (required): User's password
+     *   - password_confirmation (required): Password confirmation
+     *   - faction_id (optional): Specific guild ID within tenant to join
+     *
+     * @return array Response containing:
+     *   - token: Authentication token for the new user
+     *   - user: User data
+     *   - guild: Guild info (id, name, slug) or null
+     *   - tenant: Tenant info (id, name)
+     *   - message: Success message
+     *
+     * @example
+     * $response = $client->users->signupAndLink([
+     *     'name' => 'John Doe',
+     *     'email' => 'john@example.com',
+     *     'password' => 'SecureP@ss123!',
+     *     'password_confirmation' => 'SecureP@ss123!',
+     * ]);
+     *
+     * // Store the user's token for subsequent requests
+     * $userToken = $response['token'];
+     */
+    public function signupAndLink(array $data): array
+    {
+        // This endpoint is at /api/senseitemple/signup-and-link
+        // not under the basePath (v1/partners/), so we call the client directly
+        // Base URL should include /api, so we just use 'senseitemple/signup-and-link'
+        return $this->client->post('senseitemple/signup-and-link', $data);
     }
 }

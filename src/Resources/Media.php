@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Media extends Resource
 {
-    protected string $basePath = 'partner/media';
+    protected string $basePath = 'v1/partners/media';
 
     // === Files ===
 

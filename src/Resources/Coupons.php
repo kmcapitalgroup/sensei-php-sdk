@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Coupons extends Resource
 {
-    protected string $basePath = 'partner/coupons';
+    protected string $basePath = 'v1/partners/coupons';
 
     // === Coupons ===
 

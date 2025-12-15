@@ -2,7 +2,6 @@
 
 Official PHP SDK for the Sensei Partner API. Build integrations with Sensei's complete gamification and user engagement platform.
 
-
 ## Requirements
 
 - PHP 8.1 or higher

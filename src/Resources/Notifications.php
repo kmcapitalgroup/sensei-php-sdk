@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Notifications extends Resource
 {
-    protected string $basePath = 'partner/notifications';
+    protected string $basePath = 'v1/partners/notifications';
 
     // === Send Notifications ===
 

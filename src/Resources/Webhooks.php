@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Webhooks extends Resource
 {
-    protected string $basePath = 'partner/webhooks';
+    protected string $basePath = 'v1/partners/webhooks';
 
     /**
      * List all webhooks

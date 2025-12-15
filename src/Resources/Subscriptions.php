@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Subscriptions extends Resource
 {
-    protected string $basePath = 'partner/subscriptions';
+    protected string $basePath = 'v1/partners/subscriptions';
 
     /**
      * List all subscriptions

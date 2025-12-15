@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Events extends Resource
 {
-    protected string $basePath = 'partner/events';
+    protected string $basePath = 'v1/partners/events';
 
     /**
      * List all events

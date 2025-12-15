@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Gamification extends Resource
 {
-    protected string $basePath = 'partner/gamification';
+    protected string $basePath = 'v1/partners/gamification';
 
     // === XP & Levels ===
 

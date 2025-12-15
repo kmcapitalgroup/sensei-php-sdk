@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class ApiKeys extends Resource
 {
-    protected string $basePath = 'partner/api-keys';
+    protected string $basePath = 'v1/partners/api-keys';
 
     /**
      * List all API keys

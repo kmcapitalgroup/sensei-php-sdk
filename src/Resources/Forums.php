@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Forums extends Resource
 {
-    protected string $basePath = 'partner/forums';
+    protected string $basePath = 'v1/partners/forums';
 
     // === Categories ===
 

@@ -201,18 +201,17 @@ class PartnerClient
 
         // Handle error responses
         $message = $data['message'] ?? $data['error'] ?? 'Unknown error';
-        $errors = $data['errors'] ?? [];
 
         switch ($statusCode) {
             case 401:
             case 403:
-                throw new AuthenticationException($message, $statusCode, null, $errors);
+                throw new AuthenticationException($message, $statusCode, null, $response, $data);
 
             case 404:
-                throw new NotFoundException($message, $statusCode, null, $errors);
+                throw new NotFoundException($message, $statusCode, null, $response, $data);
 
             case 422:
-                throw new ValidationException($message, $statusCode, null, $errors);
+                throw new ValidationException($message, $statusCode, null, $response, $data);
 
             case 429:
                 // Retry-After header is in seconds per HTTP specification
@@ -236,10 +235,10 @@ class PartnerClient
             case 502:
             case 503:
             case 504:
-                throw new ServerException($message, $statusCode, null, $errors);
+                throw new ServerException($message, $statusCode, null, $response, $data);
 
             default:
-                throw new SenseiPartnerException($message, $statusCode, null, $errors);
+                throw new SenseiPartnerException($message, $statusCode, null, $response, $data);
         }
     }
 

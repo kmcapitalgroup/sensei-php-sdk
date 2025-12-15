@@ -11,7 +11,7 @@ namespace Sensei\PartnerSDK\Resources;
  */
 class Analytics extends Resource
 {
-    protected string $basePath = 'partner/analytics';
+    protected string $basePath = 'v1/partners/analytics';
 
     /**
      * Get overview analytics

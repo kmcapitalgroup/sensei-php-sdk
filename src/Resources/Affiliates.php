@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Affiliates extends Resource
 {
-    protected string $basePath = 'partner/affiliates';
+    protected string $basePath = 'v1/partners/affiliates';
 
     // === Program Settings ===
 

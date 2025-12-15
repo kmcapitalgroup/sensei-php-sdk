@@ -15,7 +15,7 @@ namespace Sensei\PartnerSDK\Resources;
  */
 class Sso extends Resource
 {
-    protected string $basePath = 'partner/sso';
+    protected string $basePath = 'v1/partners/sso';
 
     // =========================================================================
     // SSO Settings Management

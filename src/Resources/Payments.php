@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Payments extends Resource
 {
-    protected string $basePath = 'partner/payments';
+    protected string $basePath = 'v1/partners/payments';
 
     /**
      * List all payments

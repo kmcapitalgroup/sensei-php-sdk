@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Products extends Resource
 {
-    protected string $basePath = 'partner/products';
+    protected string $basePath = 'v1/partners/products';
 
     /**
      * List all products with optional filters

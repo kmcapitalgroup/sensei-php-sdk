@@ -29,7 +29,7 @@ final class Configuration
     public function __construct(
         ?string $apiKey = null,
         ?string $bearerToken = null,
-        string $baseUrl = 'https://api.senseitemple.com',
+        string $baseUrl = 'https://api.senseitemple.com/api',
         int $timeout = 30,
         int $connectTimeout = 10,
         int $maxRetries = 3,
@@ -64,7 +64,7 @@ final class Configuration
         return new self(
             apiKey: $config['api_key'] ?? null,
             bearerToken: $config['bearer_token'] ?? null,
-            baseUrl: $config['base_url'] ?? 'https://api.senseitemple.com',
+            baseUrl: $config['base_url'] ?? 'https://api.senseitemple.com/api',
             timeout: $config['timeout'] ?? 30,
             connectTimeout: $config['connect_timeout'] ?? 10,
             maxRetries: $config['max_retries'] ?? 3,

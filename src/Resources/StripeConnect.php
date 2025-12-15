@@ -11,7 +11,7 @@ namespace Sensei\PartnerSDK\Resources;
  */
 class StripeConnect extends Resource
 {
-    protected string $basePath = 'partner/stripe-connect';
+    protected string $basePath = 'v1/partners/stripe-connect';
 
     /**
      * Get Stripe Connect account status

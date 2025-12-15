@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Certificates extends Resource
 {
-    protected string $basePath = 'partner/certificates';
+    protected string $basePath = 'v1/partners/certificates';
 
     // === Certificate Templates ===
 

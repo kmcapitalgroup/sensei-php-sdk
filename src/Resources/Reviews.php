@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Reviews extends Resource
 {
-    protected string $basePath = 'partner/reviews';
+    protected string $basePath = 'v1/partners/reviews';
 
     // === Reviews ===
 

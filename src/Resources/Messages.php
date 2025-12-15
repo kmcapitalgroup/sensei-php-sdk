@@ -13,7 +13,7 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  */
 class Messages extends Resource
 {
-    protected string $basePath = 'partner/messages';
+    protected string $basePath = 'v1/partners/messages';
 
     // === Conversations (DMs) ===
 
