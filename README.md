@@ -176,6 +176,36 @@ $access = $client->subscriptions->checkAccess($userId, $productId);
 Manage your customers and students.
 
 ```php
+// =====================================
+// User Creation & Authentication
+// =====================================
+
+// Create user and link to your tenant (signup)
+// This creates the user AND returns an auth token for immediate use
+$result = $client->users->signupAndLink([
+    'name' => 'John Doe',
+    'email' => 'john@example.com',
+    'password' => 'SecurePassword123!',
+    // Optional: specify which guild to auto-join
+    'faction_id' => 123,
+]);
+// Returns:
+// - token: User's auth token for subsequent requests
+// - user: User data (id, name, email, avatar, etc.)
+// - guild: Guild the user joined (if any)
+// - tenant: Tenant information
+
+// Login existing user and link to tenant
+$result = $client->users->loginAndLink([
+    'email' => 'john@example.com',
+    'password' => 'SecurePassword123!',
+]);
+// Returns same structure as signupAndLink
+
+// =====================================
+// User Management
+// =====================================
+
 // List users
 $users = $client->users->all();
 
@@ -298,6 +328,92 @@ $client->stripeConnect->addBankAccount([
     'account_number' => '...',
     'routing_number' => '...',
 ]);
+```
+
+### User Stripe Connect (Seller Onboarding)
+
+Allow your tenant's users to become sellers and receive payments for services, events, formations, mentoring, etc.
+
+**Important**: This resource requires a **user token** (from `signupAndLink` or `loginAndLink`), not the partner API key.
+
+```php
+// =====================================
+// Setup: Create client with user token
+// =====================================
+
+// First, get a user token via signup or login
+$result = $partnerClient->users->signupAndLink([
+    'name' => 'Seller Name',
+    'email' => 'seller@example.com',
+    'password' => 'SecurePassword123!',
+]);
+$userToken = $result['token'];
+
+// Create a new client instance with the user's token
+$userClient = PartnerClient::create([
+    'bearer_token' => $userToken,  // User token, not API key
+    'base_url' => 'https://api.senseitemple.com/api',
+    'tenant' => 'your-tenant-slug',
+]);
+
+// =====================================
+// Seller Onboarding Flow
+// =====================================
+
+// Step 1: Start Stripe Connect onboarding
+$response = $userClient->userStripeConnect->onboard([
+    'country' => 'FR',              // 2-letter country code
+    'business_type' => 'individual', // 'individual' or 'company'
+    // 'company_name' => 'My Company', // Required if business_type is 'company'
+]);
+// Response:
+// - message: "Stripe Connect account created"
+// - account_id: "acct_xxxxx"
+// - onboarding_url: "https://connect.stripe.com/setup/..."
+
+// Redirect user to complete Stripe verification
+header('Location: ' . $response['data']['onboarding_url']);
+
+// Step 2: Check onboarding status (after user returns)
+$status = $userClient->userStripeConnect->status();
+// Response:
+// - connected: true/false
+// - onboarded: true/false (verification complete)
+// - account_id: "acct_xxxxx"
+// - status: Account capabilities status
+// - requirements: Pending verification requirements
+
+// =====================================
+// Seller Dashboard & Earnings
+// =====================================
+
+// Get Stripe Express Dashboard link
+$dashboard = $userClient->userStripeConnect->dashboard();
+// Response: { dashboard_url: "https://connect.stripe.com/express/..." }
+
+// Get account balance
+$balance = $userClient->userStripeConnect->balance();
+// Response:
+// - available: [{ amount: 5000, currency: 'eur' }]
+// - pending: [{ amount: 1500, currency: 'eur' }]
+
+// =====================================
+// Helper Methods
+// =====================================
+
+// Quick check if user can receive payments
+if ($userClient->userStripeConnect->canReceivePayments()) {
+    // Show "Create paid service" button
+} else {
+    // Show "Connect Stripe" button
+}
+
+// Refresh onboarding link (if expired)
+$refresh = $userClient->userStripeConnect->refresh();
+// Response: { onboarding_url: "..." }
+
+// Disconnect Stripe account
+$userClient->userStripeConnect->disconnect();
 ```
 
 ### SSO / OAuth 2.0
