@@ -330,6 +330,82 @@ $client->stripeConnect->addBankAccount([
 ]);
 ```
 
+### Alliances
+
+Alliances are federations of guilds that can cooperate, share treasuries, and compete in wars.
+
+```php
+// =====================================
+// Alliance Management
+// =====================================
+
+// List all alliances
+$alliances = $client->alliances->all();
+
+// Create an alliance
+$alliance = $client->alliances->create([
+    'name' => 'The Federation',
+    'description' => 'United guilds',
+    'founder_guild_id' => 123,
+    'max_guilds' => 10,
+    'requires_approval' => true,
+]);
+
+// =====================================
+// Membership
+// =====================================
+
+// Invite a guild to join
+$client->alliances->invite($allianceId, $guildId);
+
+// Apply to join an alliance
+$client->alliances->apply($allianceId, $guildId, 'We want to join!');
+
+// Accept/reject applications
+$client->alliances->acceptMember($allianceId, $membershipId);
+$client->alliances->rejectMember($allianceId, $membershipId);
+
+// Leave or kick guilds
+$client->alliances->leave($allianceId, $guildId);
+$client->alliances->kick($allianceId, $membershipId);
+
+// Promote/demote guilds
+$client->alliances->setRole($allianceId, $membershipId, 'officer'); // member, officer, leader
+
+// =====================================
+// Treasury
+// =====================================
+
+// Get treasury balance
+$treasury = $client->alliances->treasury($allianceId);
+
+// Contribute to treasury
+$client->alliances->contribute($allianceId, $guildId, 1000, 'Monthly contribution');
+
+// Propose expense (may require vote)
+$client->alliances->proposeExpense($allianceId, 5000, 'New guild hall');
+
+// Vote on expense
+$client->alliances->voteOnExpense($allianceId, $transactionId, $guildId, true);
+
+// =====================================
+// Alliance Wars
+// =====================================
+
+// Declare war on another alliance
+$client->alliances->declareWar($myAllianceId, $enemyAllianceId);
+
+// Accept/decline war (defender)
+$client->alliances->acceptWar($allianceId, $warId);
+$client->alliances->declineWar($allianceId, $warId);
+
+// Check war status
+$status = $client->alliances->warStatus($allianceId);
+
+// Get war leaderboard
+$leaderboard = $client->alliances->warLeaderboard($allianceId, $warId);
+```
+
 ### User Stripe Connect (Seller Onboarding)
 
 Allow your tenant's users to become sellers and receive payments for services, events, formations, mentoring, etc.

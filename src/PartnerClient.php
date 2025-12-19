@@ -17,6 +17,7 @@ use Sensei\PartnerSDK\Exceptions\SenseiPartnerException;
 use Sensei\PartnerSDK\Exceptions\ServerException;
 use Sensei\PartnerSDK\Exceptions\ValidationException;
 use Sensei\PartnerSDK\Resources\Affiliates;
+use Sensei\PartnerSDK\Resources\Alliances;
 use Sensei\PartnerSDK\Resources\Analytics;
 use Sensei\PartnerSDK\Resources\ApiKeys;
 use Sensei\PartnerSDK\Resources\Certificates;
@@ -46,6 +47,7 @@ use Sensei\PartnerSDK\Resources\Webhooks;
  * Main Partner SDK Client
  *
  * @property-read Affiliates $affiliates Affiliate program management
+ * @property-read Alliances $alliances Alliance/federation management
  * @property-read Analytics $analytics Analytics and reporting
  * @property-read ApiKeys $apiKeys API Key management
  * @property-read Certificates $certificates Certificate management
@@ -318,6 +320,7 @@ class PartnerClient
     {
         $resourceMap = [
             'affiliates' => Affiliates::class,
+            'alliances' => Alliances::class,
             'analytics' => Analytics::class,
             'apiKeys' => ApiKeys::class,
             'certificates' => Certificates::class,
