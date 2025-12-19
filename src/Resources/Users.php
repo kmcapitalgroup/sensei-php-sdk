@@ -324,8 +324,7 @@ class Users extends Resource
      * @param array $data User registration data:
      *   - name (required): User's full name
      *   - email (required): User's email address
-     *   - password (required): User's password
-     *   - password_confirmation (required): Password confirmation
+     *   - password (required): User's password (min 8 characters)
      *   - faction_id (optional): Specific guild ID within tenant to join
      *
      * @return array Response containing:
@@ -340,7 +339,6 @@ class Users extends Resource
      *     'name' => 'John Doe',
      *     'email' => 'john@example.com',
      *     'password' => 'SecureP@ss123!',
-     *     'password_confirmation' => 'SecureP@ss123!',
      * ]);
      *
      * // Store the user's token for subsequent requests
@@ -348,9 +346,8 @@ class Users extends Resource
      */
     public function signupAndLink(array $data): array
     {
-        // This endpoint is at /api/senseitemple/signup-and-link
-        // not under the basePath (v1/partners/), so we call the client directly
-        // Base URL should include /api, so we just use 'senseitemple/signup-and-link'
+        // This endpoint is at /api/v1/senseitemple/signup-and-link
+        // Base URL should be https://xxx/api/v1, so we use 'senseitemple/signup-and-link'
         return $this->client->post('senseitemple/signup-and-link', $data);
     }
 }
