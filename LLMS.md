@@ -1272,6 +1272,392 @@ $client = PartnerClient::create([
 
 ---
 
+## Compliance & GDPR
+
+The SDK provides comprehensive GDPR compliance tools through the `compliance` resource.
+
+### Quick Decision Tree
+
+```
+GDPR TASK: What do you need to do?
+├── User requests their data (Article 15)
+│   └── compliance.requestDataExport(userId) → Get download URL
+│
+├── User requests deletion (Article 17 - Right to be forgotten)
+│   └── compliance.requestDeletion(userId, reason)
+│
+├── Record user consent (Article 7)
+│   └── compliance.recordConsent(userId, consentType, granted)
+│
+├── Manage Data Processing Agreement (DPA)
+│   ├── Get current DPA → compliance.getCurrentDpa()
+│   ├── Sign DPA → compliance.signDpa(dpaId, signerInfo)
+│   └── Download signed → compliance.downloadDpa(dpaId)
+│
+├── Configure data retention (Article 5)
+│   ├── Get settings → compliance.retentionSettings()
+│   └── Update settings → compliance.updateRetentionSettings(settings)
+│
+└── Audit trail (Article 30)
+    ├── Get logs → compliance.auditLogs()
+    └── Export logs → compliance.exportAuditLogs(startDate, endDate)
+```
+
+### GDPR Status Check
+
+```php
+// Check overall GDPR compliance status
+$status = $client->compliance->gdprStatus();
+
+// Response
+[
+    'compliant' => true,
+    'dpa_signed' => true,
+    'retention_configured' => true,
+    'consent_types_defined' => true,
+    'checklist_completion' => 85,  // percentage
+]
+```
+
+### Data Export (Article 15 - Right of Access)
+
+```php
+// Request data export for a user
+$request = $client->compliance->requestDataExport(int $userId);
+
+// Response
+[
+    'id' => 123,
+    'user_id' => 456,
+    'status' => 'processing',  // 'pending', 'processing', 'completed', 'failed'
+    'requested_at' => '2025-01-20T10:00:00Z',
+]
+
+// Check export status and get download URL when ready
+$export = $client->compliance->getDataExportUrl(int $requestId);
+
+// Response (when completed)
+[
+    'status' => 'completed',
+    'download_url' => 'https://...',  // Temporary signed URL
+    'expires_at' => '2025-01-21T10:00:00Z',
+    'format' => 'json',
+]
+
+// List all export requests
+$requests = $client->compliance->dataExportRequests(['status' => 'completed']);
+```
+
+### Data Deletion (Article 17 - Right to Erasure)
+
+```php
+// Request user data deletion
+$result = $client->compliance->requestDeletion(
+    int $userId,
+    string $reason = 'User requested account deletion'
+);
+
+// Response
+[
+    'id' => 789,
+    'user_id' => 456,
+    'reason' => 'User requested account deletion',
+    'status' => 'pending',  // 'pending', 'processing', 'completed', 'rejected'
+    'scheduled_at' => '2025-01-27T00:00:00Z',  // 7-day grace period
+]
+
+// List deletion requests
+$requests = $client->compliance->deletionRequests(['status' => 'pending']);
+```
+
+**Important**: Deletion requests have a grace period (typically 7 days) before execution, allowing users to cancel if needed.
+
+### Consent Management (Article 7)
+
+```php
+// Get available consent types
+$types = $client->compliance->consentTypes();
+
+// Response
+[
+    ['type' => 'marketing', 'description' => 'Marketing communications', 'required' => false],
+    ['type' => 'analytics', 'description' => 'Usage analytics', 'required' => false],
+    ['type' => 'terms', 'description' => 'Terms of Service', 'required' => true],
+    ['type' => 'privacy', 'description' => 'Privacy Policy', 'required' => true],
+]
+
+// Record user consent
+$result = $client->compliance->recordConsent(
+    int $userId,
+    string $consentType,  // 'marketing', 'analytics', etc.
+    bool $granted         // true = consented, false = declined
+);
+
+// Response
+[
+    'id' => 123,
+    'user_id' => 456,
+    'consent_type' => 'marketing',
+    'granted' => true,
+    'ip_address' => '192.168.1.1',
+    'user_agent' => 'Mozilla/5.0...',
+    'recorded_at' => '2025-01-20T10:00:00Z',
+]
+
+// Get user's consent history
+$consents = $client->compliance->consents(['user_id' => 456]);
+```
+
+### Data Processing Agreement (DPA)
+
+```php
+// Get current DPA document
+$dpa = $client->compliance->getCurrentDpa();
+
+// Response
+[
+    'id' => 1,
+    'version' => '2.0',
+    'title' => 'Data Processing Agreement',
+    'content' => '...',  // Full DPA text
+    'effective_date' => '2025-01-01',
+    'requires_signature' => true,
+]
+
+// Sign the DPA
+$result = $client->compliance->signDpa(int $dpaId, [
+    'signer_name' => 'John Doe',
+    'signer_title' => 'CEO',
+    'signer_email' => 'john@company.com',
+    'company_name' => 'Acme Inc.',
+]);
+
+// Response
+[
+    'id' => 123,
+    'dpa_id' => 1,
+    'signed_at' => '2025-01-20T10:00:00Z',
+    'signer' => [...],
+    'signature_ip' => '192.168.1.1',
+]
+
+// Download signed DPA as PDF
+$pdf = $client->compliance->downloadDpa(int $dpaId);
+// Returns: ['download_url' => 'https://...']
+
+// List all DPAs (including historical versions)
+$dpas = $client->compliance->dpaList();
+```
+
+### Data Retention Settings (Article 5)
+
+```php
+// Get current retention settings
+$settings = $client->compliance->retentionSettings();
+
+// Response
+[
+    'user_data' => ['retention_days' => 365, 'auto_delete' => false],
+    'activity_logs' => ['retention_days' => 90, 'auto_delete' => true],
+    'messages' => ['retention_days' => 180, 'auto_delete' => false],
+    'analytics' => ['retention_days' => 730, 'auto_delete' => true],
+]
+
+// Update retention settings
+$result = $client->compliance->updateRetentionSettings([
+    'activity_logs' => ['retention_days' => 30, 'auto_delete' => true],
+    'messages' => ['retention_days' => 90, 'auto_delete' => true],
+]);
+```
+
+### Audit Logs (Article 30)
+
+```php
+// Get audit logs
+$logs = $client->compliance->auditLogs([
+    'action' => 'user.deleted',      // Filter by action
+    'user_id' => 456,                // Filter by user
+    'start_date' => '2025-01-01',
+    'end_date' => '2025-01-31',
+]);
+
+// Response (paginated)
+[
+    'data' => [
+        [
+            'id' => 1,
+            'action' => 'user.deleted',
+            'actor_id' => 123,
+            'target_type' => 'user',
+            'target_id' => 456,
+            'metadata' => ['reason' => 'User requested deletion'],
+            'ip_address' => '192.168.1.1',
+            'created_at' => '2025-01-20T10:00:00Z',
+        ],
+    ],
+]
+
+// Export audit logs
+$export = $client->compliance->exportAuditLogs(
+    string $startDate,   // '2025-01-01'
+    string $endDate,     // '2025-01-31'
+    string $format       // 'csv' or 'json'
+);
+
+// Response
+[
+    'download_url' => 'https://...',
+    'format' => 'csv',
+    'record_count' => 1250,
+]
+
+// Get specific audit log entry
+$log = $client->compliance->auditLog(int $logId);
+```
+
+### Compliance Checklist
+
+```php
+// Get compliance checklist
+$checklist = $client->compliance->checklist();
+
+// Response
+[
+    [
+        'id' => 1,
+        'category' => 'gdpr',
+        'item' => 'Sign Data Processing Agreement',
+        'completed' => true,
+        'completed_at' => '2025-01-15T10:00:00Z',
+    ],
+    [
+        'id' => 2,
+        'category' => 'gdpr',
+        'item' => 'Configure data retention policies',
+        'completed' => false,
+        'required' => true,
+    ],
+]
+
+// Mark checklist item as complete
+$result = $client->compliance->completeChecklistItem(int $itemId, [
+    'evidence' => 'Policy document uploaded to internal wiki',
+]);
+
+// Run compliance check (validates current state)
+$check = $client->compliance->runComplianceCheck();
+
+// Response
+[
+    'overall_status' => 'compliant',  // or 'non_compliant', 'partial'
+    'issues' => [],                   // List of issues if any
+    'recommendations' => [...],
+    'last_check' => '2025-01-20T10:00:00Z',
+]
+```
+
+### Legal Documents
+
+```php
+// Get all legal documents
+$docs = $client->compliance->legalDocuments();
+
+// Get Terms of Service
+$terms = $client->compliance->termsOfService();
+
+// Get Privacy Policy
+$privacy = $client->compliance->privacyPolicy();
+
+// Accept terms (record user acceptance)
+$result = $client->compliance->acceptTerms(
+    string $documentType,  // 'terms' or 'privacy'
+    string $version        // Document version accepted
+);
+```
+
+### GDPR Integration Flow
+
+```php
+// Complete GDPR-compliant user registration flow
+
+class GDPRCompliantRegistration {
+    private PartnerClient $client;
+
+    public function register(Request $request) {
+        // 1. Create user
+        $signup = $this->client->users->signupAndLink([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => $request->password,
+        ]);
+
+        $userId = $signup['user']['id'];
+
+        // 2. Record required consents
+        $this->client->compliance->recordConsent($userId, 'terms', true);
+        $this->client->compliance->recordConsent($userId, 'privacy', true);
+
+        // 3. Record optional consents (based on user choices)
+        if ($request->marketing_consent) {
+            $this->client->compliance->recordConsent($userId, 'marketing', true);
+        }
+
+        return $signup;
+    }
+
+    public function handleDeletionRequest(int $userId) {
+        // 1. Request deletion from Sensei
+        $this->client->compliance->requestDeletion($userId, 'User requested account deletion');
+
+        // 2. Delete/anonymize local data
+        // ... your local cleanup code
+
+        // 3. Log for audit
+        Log::info('User deletion requested', ['user_id' => $userId]);
+    }
+
+    public function handleExportRequest(int $userId) {
+        // 1. Request export from Sensei
+        $request = $this->client->compliance->requestDataExport($userId);
+
+        // 2. Poll for completion or use webhook
+        return $request;
+    }
+}
+```
+
+### Rate Limiting
+
+The SDK handles rate limiting automatically:
+
+```php
+// Configuration
+$client = PartnerClient::create([
+    'api_key' => 'sk_live_xxx',
+    'retry_on_rate_limit' => true,  // Auto-retry on 429 (default: true)
+    'max_retries' => 3,             // Max retry attempts
+]);
+
+// Manual handling if needed
+try {
+    $result = $client->users->signupAndLink([...]);
+} catch (RateLimitException $e) {
+    $retryAfter = $e->getRetryAfter();  // Seconds to wait
+    sleep($retryAfter);
+    // Retry the request
+}
+```
+
+**Rate Limits** (default):
+| Endpoint Type | Limit |
+|--------------|-------|
+| Authentication | 10/min per IP |
+| Read operations | 120/min per API key |
+| Write operations | 60/min per API key |
+| Bulk operations | 10/min per API key |
+
+---
+
 ## Webhook Events
 
 When configuring webhooks, these events are available:
@@ -1280,12 +1666,24 @@ When configuring webhooks, these events are available:
 |-------|---------|
 | `user.created` | New user registered via SDK |
 | `user.updated` | User profile changed |
+| `user.deleted` | User account deleted (GDPR) |
 | `subscription.created` | New subscription started |
 | `subscription.cancelled` | Subscription cancelled |
 | `subscription.renewed` | Subscription auto-renewed |
 | `payment.completed` | Payment succeeded |
 | `payment.failed` | Payment failed |
 | `refund.created` | Refund issued |
+| `compliance.export_ready` | Data export is ready for download |
+| `compliance.deletion_completed` | User data deletion completed |
+| `compliance.consent_updated` | User consent preference changed |
+| `guild.created` | New guild created |
+| `guild.member_joined` | User joined a guild |
+| `guild.member_left` | User left a guild |
+| `alliance.created` | New alliance created |
+| `alliance.war_declared` | War declared between alliances |
+| `alliance.war_ended` | Alliance war concluded |
+| `trust.reaction_received` | User received a trust reaction |
+| `trust.negative_vote` | User received a negative trust vote |
 
 ---
 
