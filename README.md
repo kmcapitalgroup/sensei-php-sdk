@@ -14,6 +14,45 @@ Official PHP SDK for the Sensei Partner API. Build integrations with Sensei's co
 composer require sensei/partner-sdk
 ```
 
+## Authentication: Two Levels
+
+The SDK uses **two authentication levels** depending on who performs the action:
+
+| Auth Type | When to Use | Resources |
+|-----------|-------------|-----------|
+| **API Key** | Partner/admin operations | users.signupAndLink, products, subscriptions, analytics, dashboard |
+| **User Token** | User-owned actions | guilds, alliances, messages, trustScore, userStripeConnect |
+
+```php
+// 1. PARTNER CLIENT (API Key) - for admin operations
+$partnerClient = PartnerClient::create([
+    'api_key' => 'sk_live_xxx',
+]);
+
+// Create user and get their token
+$result = $partnerClient->users->signupAndLink([
+    'name' => 'John Doe',
+    'email' => 'john@example.com',
+    'password' => 'SecurePass123!',
+]);
+$userToken = $result['token'];
+
+// 2. USER CLIENT (Bearer Token) - for user-owned actions
+$userClient = PartnerClient::create([
+    'bearer_token' => $userToken,
+    'tenant' => 'your-tenant-slug',
+]);
+
+// User creates their own guild (they become owner)
+$guild = $userClient->guilds->create(['name' => 'My Guild']);
+
+// User sends messages
+$userClient->messages->startConversation([...]);
+
+// User gives trust reactions
+$userClient->trustScore->giveReaction([...]);
+```
+
 ## Quick Start
 
 ### Basic Usage (Without Laravel)
@@ -404,6 +443,81 @@ $status = $client->alliances->warStatus($allianceId);
 
 // Get war leaderboard
 $leaderboard = $client->alliances->warLeaderboard($allianceId, $warId);
+```
+
+### Trust Score
+
+The Trust Score system allows users to build reputation through weighted voting.
+
+```php
+// =====================================
+// User Trust Reactions
+// =====================================
+
+// Give a positive trust reaction (endorsement)
+$result = $client->trustScore->giveReaction([
+    'trustee_uuid' => 'user-uuid-here',
+    'trust_score' => 5,  // 0 to 5
+    'reaction_type' => 'recommendation',
+    'comment' => 'Great mentor, highly recommend!',
+]);
+
+// Give a negative trust reaction (requires proof of interaction)
+$result = $client->trustScore->giveReaction([
+    'trustee_uuid' => 'user-uuid-here',
+    'trust_score' => -3,  // -5 to 0
+    'negative_category' => 'no_delivery',
+    'negative_reason' => 'Paid for service but never received it',
+    'interaction_type' => 'service',
+    'interaction_id' => 123,
+]);
+
+// Get user's trust score breakdown
+$breakdown = $client->trustScore->getUserBreakdown('user-uuid');
+
+// Get my weekly stats (reactions given/remaining)
+$stats = $client->trustScore->getMyStats();
+
+// Get reactions I've received
+$reactions = $client->trustScore->getReactionsReceived();
+
+// Check if I can give negative vote to a user
+$eligibility = $client->trustScore->checkNegativeVoteEligibility('user-uuid');
+
+// Respond to a negative vote I received
+$client->trustScore->respondToNegativeVote($reactionId, 'My response explanation...');
+
+// =====================================
+// Guild Trust Score
+// =====================================
+
+// Get guild's trust score
+$score = $client->trustScore->getGuildTrustScore($guildId);
+
+// Vote on a guild
+$client->trustScore->voteOnGuild($guildId, [
+    'reaction' => 'positive',
+]);
+
+$client->trustScore->voteOnGuild($guildId, [
+    'reaction' => 'negative',
+    'negative_reason' => 'Inactive moderation',
+]);
+
+// =====================================
+// Alliance Trust Score
+// =====================================
+
+// Get alliance's trust score
+$score = $client->trustScore->getAllianceTrustScore($allianceId);
+
+// Vote on an alliance
+$client->trustScore->voteOnAlliance($allianceId, [
+    'reaction' => 'positive',
+]);
+
+// Get level weights (higher levels = more influence)
+$weights = $client->trustScore->getLevelWeights();
 ```
 
 ### User Stripe Connect (Seller Onboarding)

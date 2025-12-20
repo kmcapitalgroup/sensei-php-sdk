@@ -53,6 +53,14 @@ TASK: What do you want to do?
 │   ├── Threads → messages.createThread(), messages.sendInThread()
 │   └── Announcements → messages.sendAnnouncement()
 │
+├── Trust Score & Reputation
+│   ├── Give trust reaction → trustScore.giveReaction()
+│   ├── Get user score → trustScore.getUserBreakdown()
+│   ├── Vote on guild → trustScore.voteOnGuild()
+│   ├── Vote on alliance → trustScore.voteOnAlliance()
+│   ├── Check vote eligibility → trustScore.checkNegativeVoteEligibility()
+│   └── Respond to negative vote → trustScore.respondToNegativeVote()
+│
 ├── Manage subscriptions
 │   ├── Create subscription → subscriptions.create()
 │   ├── Cancel subscription → subscriptions.cancel()
@@ -73,37 +81,141 @@ TASK: What do you want to do?
 
 ## Authentication Patterns
 
-### Pattern 1: Partner API Key (Server-to-Server)
+**CRITICAL**: The SDK uses two authentication levels. Using the wrong one will result in 401/403 errors.
 
-Use for: Managing tenant resources, creating users, admin operations.
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    AUTHENTICATION DECISION TREE                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Who is performing the action?                                      │
+│  ├── PARTNER (admin/backend operations)                             │
+│  │   └── Use: API Key (sk_live_xxx)                                │
+│  │       Resources: users.signupAndLink, products, subscriptions,  │
+│  │                  analytics, dashboard, webhooks, apiKeys        │
+│  │                                                                  │
+│  └── USER (user-owned actions)                                      │
+│      └── Use: Bearer Token (from signupAndLink/loginAndLink)       │
+│          Resources: guilds, alliances, messages, trustScore,       │
+│                     userStripeConnect                               │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Pattern 1: Partner API Key (Admin Operations)
+
+**Use for**: Creating users, managing products, viewing analytics, admin operations.
 
 ```php
 use Sensei\PartnerSDK\PartnerClient;
 
-$client = PartnerClient::create([
+$partnerClient = PartnerClient::create([
     'api_key' => 'sk_live_xxxxxxxxxxxxxxxx',  // Partner API key
     'base_url' => 'https://api.senseitemple.com/api',
 ]);
+
+// Partner-level operations
+$partnerClient->users->signupAndLink([...]);      // Create user
+$partnerClient->products->all();                   // List products
+$partnerClient->analytics->revenue();              // View revenue
+$partnerClient->subscriptions->create([...]);      // Create subscription
 ```
 
-### Pattern 2: User Bearer Token (User Context)
+### Pattern 2: User Bearer Token (User-Owned Actions)
 
-Use for: User-specific operations like Stripe Connect onboarding.
+**Use for**: Actions where the USER is the owner/actor (create guild, send messages, join alliance, etc.)
 
 ```php
-// Step 1: Create user and get token
-$result = $partnerClient->users->signupAndLink([...]);
-$userToken = $result['token'];
+// Step 1: Partner creates/authenticates user and gets token
+$result = $partnerClient->users->signupAndLink([
+    'name' => 'John Doe',
+    'email' => 'john@example.com',
+    'password' => 'SecurePass123!',
+]);
+$userToken = $result['token'];  // SAVE THIS - it's the user's auth
 
 // Step 2: Create user-context client
 $userClient = PartnerClient::create([
-    'bearer_token' => $userToken,
+    'bearer_token' => $userToken,  // User token, NOT API key
     'base_url' => 'https://api.senseitemple.com/api',
     'tenant' => 'your-tenant-slug',
 ]);
 
-// Step 3: Use user-context client
-$status = $userClient->userStripeConnect->status();
+// Step 3: User can now perform user-owned actions
+$guild = $userClient->guilds->create([...]);       // User becomes owner
+$userClient->messages->startConversation([...]);   // User sends message
+$userClient->alliances->apply([...]);              // User's guild applies
+$userClient->trustScore->giveReaction([...]);      // User gives trust
+$userClient->userStripeConnect->onboard([...]);    // User becomes seller
+```
+
+### Resource Authentication Requirements
+
+| Resource | Auth Type | Description |
+|----------|-----------|-------------|
+| `users.signupAndLink()` | API Key | Partner creates user |
+| `users.loginAndLink()` | API Key | Partner authenticates user |
+| `products`, `subscriptions` | API Key | Partner manages catalog |
+| `analytics`, `dashboard` | API Key | Partner views stats |
+| `webhooks`, `apiKeys` | API Key | Partner configuration |
+| **`guilds`** | **User Token** | User creates/manages guilds |
+| **`alliances`** | **User Token** | User's guild joins alliances |
+| **`messages`** | **User Token** | User sends messages |
+| **`trustScore`** | **User Token** | User gives/receives trust |
+| **`userStripeConnect`** | **User Token** | User becomes seller |
+
+### Complete Integration Flow
+
+```php
+// =====================================================
+// PARTNER BACKEND: User registration flow
+// =====================================================
+
+class UserController {
+    private PartnerClient $partnerClient;
+
+    public function __construct() {
+        // Partner client with API key (singleton)
+        $this->partnerClient = PartnerClient::create([
+            'api_key' => config('services.sensei.api_key'),
+        ]);
+    }
+
+    // Called when user signs up on partner's platform
+    public function register(Request $request) {
+        // 1. Create user in Sensei
+        $result = $this->partnerClient->users->signupAndLink([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => $request->password,
+        ]);
+
+        // 2. Store token in session or return to frontend
+        session(['sensei_token' => $result['token']]);
+
+        return $result['user'];
+    }
+
+    // Called when user wants to create a guild
+    public function createGuild(Request $request) {
+        // 1. Get user's token from session
+        $userToken = session('sensei_token');
+
+        // 2. Create user-context client
+        $userClient = PartnerClient::create([
+            'bearer_token' => $userToken,
+            'tenant' => config('services.sensei.tenant'),
+        ]);
+
+        // 3. Create guild - USER is the owner
+        $guild = $userClient->guilds->create([
+            'name' => $request->name,
+            'description' => $request->description,
+        ]);
+
+        return $guild;
+    }
+}
 ```
 
 ---
@@ -769,6 +881,252 @@ $client->messages->removeParticipant(int $conversationId, int $userId): array
 
 ---
 
+## Trust Score (Reputation System)
+
+The Trust Score system builds reputation through weighted voting. Higher-level users have more influence.
+
+### Trust Score Concepts
+
+```
+TRUST SCORE SYSTEM:
+├── User Trust Score
+│   ├── Based on reactions from other users
+│   ├── Weighted by voter level (higher level = more weight)
+│   ├── Positive reactions: 0 to 5 score
+│   └── Negative reactions: -5 to 0 (requires proof of interaction)
+│
+├── Guild Trust Score
+│   └── Aggregate of member votes on guild trustworthiness
+│
+└── Alliance Trust Score
+    └── Aggregate of votes on alliance trustworthiness
+```
+
+### trustScore.giveReaction()
+
+**Purpose**: Give a trust reaction (endorsement) to another user.
+
+```php
+// Method signature
+$result = $client->trustScore->giveReaction(array $data): array
+
+// Parameters for POSITIVE reaction (score >= 0)
+$data = [
+    'trustee_uuid' => string,       // REQUIRED: Target user's UUID
+    'trust_score' => float,         // REQUIRED: 0 to 5
+    'reaction_type' => string,      // OPTIONAL: 'trust', 'endorsement', 'recommendation'
+    'comment' => string,            // OPTIONAL: Max 500 chars
+];
+
+// Parameters for NEGATIVE reaction (score < 0)
+$data = [
+    'trustee_uuid' => string,       // REQUIRED: Target user's UUID
+    'trust_score' => float,         // REQUIRED: -5 to 0
+    'negative_category' => string,  // REQUIRED: Category of issue
+    'negative_reason' => string,    // REQUIRED: Detailed reason
+    'interaction_type' => string,   // REQUIRED: 'service', 'event', 'formation', etc.
+    'interaction_id' => int,        // REQUIRED: ID of the interaction as proof
+];
+
+// Response
+[
+    'message' => 'Trust reaction given successfully',
+    'data' => [
+        'id' => 1,
+        'trustee' => ['uuid' => '...', 'username' => '...', 'name' => '...'],
+        'trust_score' => 4.5,
+        'voter_level' => 15,
+        'weight' => 1.5,            // Weight based on voter level
+        'reaction_type' => 'endorsement',
+        'is_negative' => false,
+    ],
+    'remaining_reactions' => 4,     // Weekly limit remaining
+]
+```
+
+**Negative Vote Categories**:
+| Category | Description |
+|----------|-------------|
+| `fraud` | Fraudulent behavior |
+| `no_delivery` | Service/product not delivered |
+| `poor_quality` | Quality below expectations |
+| `communication` | Poor communication |
+| `unprofessional` | Unprofessional conduct |
+| `other` | Other issues |
+
+### trustScore.getUserBreakdown()
+
+**Purpose**: Get detailed trust score breakdown for a user.
+
+```php
+// Method signature
+$breakdown = $client->trustScore->getUserBreakdown(string $userUuid): array
+
+// Response
+[
+    'user' => ['uuid' => '...', 'username' => '...', 'name' => '...'],
+    'trust_score_breakdown' => [
+        'total_score' => 4.2,                  // Weighted average
+        'total_reactions' => 25,
+        'positive_reactions' => 23,
+        'negative_reactions' => 2,
+        'average_score' => 4.1,
+        'breakdown_by_level' => [
+            ['level_range' => '1-10', 'count' => 10, 'weight' => 1.0],
+            ['level_range' => '11-20', 'count' => 12, 'weight' => 1.5],
+            ['level_range' => '21+', 'count' => 3, 'weight' => 2.0],
+        ],
+    ],
+]
+```
+
+### trustScore.getMyStats()
+
+**Purpose**: Get current user's weekly reaction statistics.
+
+```php
+// Method signature
+$stats = $client->trustScore->getMyStats(): array
+
+// Response
+[
+    'weekly_stats' => [
+        'reactions_given_this_week' => 3,
+        'reactions_remaining' => 7,            // Can give 7 more this week
+        'max_weekly_reactions' => 10,
+        'week_resets_at' => '2025-01-27T00:00:00Z',
+    ],
+    'recent_reactions_given' => [
+        [
+            'trustee' => ['uuid' => '...', 'username' => '...'],
+            'trust_score' => 5,
+            'reaction_type' => 'recommendation',
+            'created_at' => '2025-01-20T10:00:00Z',
+        ],
+    ],
+]
+```
+
+### trustScore.checkNegativeVoteEligibility()
+
+**Purpose**: Check if user can give a negative vote to another user.
+
+```php
+// Method signature
+$eligibility = $client->trustScore->checkNegativeVoteEligibility(string $userUuid): array
+
+// Response (eligible)
+[
+    'eligible' => true,
+    'voter' => ['uuid' => '...', 'username' => '...', 'level' => 15],
+    'trustee' => ['uuid' => '...', 'username' => '...'],
+    'interaction' => [
+        'type' => 'service',
+        'id' => 123,
+        'date' => '2025-01-15T10:00:00Z',
+    ],
+    'message' => 'You are eligible to give a negative vote to this user.',
+]
+
+// Response (not eligible)
+[
+    'eligible' => false,
+    'reason' => 'No interaction found within the required window',
+    'required_level' => 10,
+    'current_level' => 5,
+    'interaction_window_days' => 30,
+]
+```
+
+### trustScore.respondToNegativeVote()
+
+**Purpose**: Respond to a negative vote received.
+
+```php
+// Method signature
+$result = $client->trustScore->respondToNegativeVote(int $reactionId, string $response): array
+
+// Response
+[
+    'message' => 'Response submitted successfully',
+    'data' => [
+        'id' => 1,
+        'negative_category' => 'communication',
+        'negative_reason' => 'Slow response times',
+        'trustee_response' => 'I was on vacation and responded within 48h of return.',
+        'trustee_responded_at' => '2025-01-21T10:00:00Z',
+    ],
+]
+```
+
+### Guild Trust Score
+
+```php
+// Get guild's trust score breakdown
+$score = $client->trustScore->getGuildTrustScore(int $guildId): array
+
+// Vote on a guild (positive)
+$result = $client->trustScore->voteOnGuild($guildId, [
+    'reaction' => 'positive',
+]): array
+
+// Vote on a guild (negative - requires reason)
+$result = $client->trustScore->voteOnGuild($guildId, [
+    'reaction' => 'negative',
+    'negative_reason' => 'Inactive moderators, spam not controlled',
+    'proof_of_interaction' => 'Was a member for 3 months',
+]): array
+
+// Get my vote on a guild
+$myVote = $client->trustScore->getMyGuildVote(int $guildId): array
+
+// Get all votes on a guild
+$votes = $client->trustScore->getGuildVotes(int $guildId): PaginatedResponse
+```
+
+### Alliance Trust Score
+
+```php
+// Get alliance's trust score breakdown
+$score = $client->trustScore->getAllianceTrustScore(int|string $allianceId): array
+
+// Vote on an alliance (positive)
+$result = $client->trustScore->voteOnAlliance($allianceId, [
+    'reaction' => 'positive',
+]): array
+
+// Vote on an alliance (negative)
+$result = $client->trustScore->voteOnAlliance($allianceId, [
+    'reaction' => 'negative',
+    'negative_reason' => 'Treasury mismanagement, no transparency',
+]): array
+
+// Get my vote on an alliance
+$myVote = $client->trustScore->getMyAllianceVote(int|string $allianceId): array
+
+// Get all votes on an alliance
+$votes = $client->trustScore->getAllianceVotes(int|string $allianceId): PaginatedResponse
+```
+
+### Level Weight System
+
+Higher level users have more influence on trust scores:
+
+| Min Level | Weight | Description |
+|-----------|--------|-------------|
+| 1 | 1.0x | New users |
+| 10 | 1.25x | Established users |
+| 20 | 1.5x | Experienced users |
+| 30 | 1.75x | Senior users |
+| 50 | 2.0x | Veterans |
+
+```php
+// Get level weights configuration
+$weights = $client->trustScore->getLevelWeights(): array
+```
+
+---
+
 ## Error Handling Reference
 
 ```php
@@ -891,25 +1249,26 @@ $client = PartnerClient::create([
 
 ## Available Resources
 
-| Resource | Property | Use Case |
-|----------|----------|----------|
-| Users | `$client->users` | User management, signup, login |
-| User Stripe Connect | `$client->userStripeConnect` | Seller onboarding (requires user token) |
-| **Guilds** | `$client->guilds` | Community/guild management, members, roles, channels |
-| **Alliances** | `$client->alliances` | Guild federations, treasury, wars |
-| **Messages** | `$client->messages` | DMs, channel messages, threads, announcements |
-| Subscriptions | `$client->subscriptions` | Subscription CRUD |
-| Products | `$client->products` | Product/formation management |
-| Payments | `$client->payments` | Payment, refund, invoice handling |
-| Dashboard | `$client->dashboard` | Stats and metrics |
-| Analytics | `$client->analytics` | Reports and cohorts |
-| Stripe Connect | `$client->stripeConnect` | Partner-level Stripe config |
-| SSO | `$client->sso` | OAuth 2.0 / PKCE authentication |
-| Webhooks | `$client->webhooks` | Webhook configuration |
-| API Keys | `$client->apiKeys` | API key management |
-| Compliance | `$client->compliance` | GDPR, tax, DPA |
-| Profile | `$client->profile` | Partner profile |
-| Settings | `$client->settings` | Partner settings |
+| Resource | Property | Auth | Use Case |
+|----------|----------|------|----------|
+| Users | `$client->users` | API Key | User creation (signupAndLink, loginAndLink) |
+| **Guilds** | `$client->guilds` | **User Token** | User creates/manages guilds as owner |
+| **Alliances** | `$client->alliances` | **User Token** | User's guild joins federations |
+| **Messages** | `$client->messages` | **User Token** | User sends DMs, channel messages |
+| **TrustScore** | `$client->trustScore` | **User Token** | User gives/receives reputation |
+| **UserStripeConnect** | `$client->userStripeConnect` | **User Token** | User becomes seller |
+| Subscriptions | `$client->subscriptions` | API Key | Partner manages subscriptions |
+| Products | `$client->products` | API Key | Partner manages catalog |
+| Payments | `$client->payments` | API Key | Partner handles payments |
+| Dashboard | `$client->dashboard` | API Key | Partner views stats |
+| Analytics | `$client->analytics` | API Key | Partner reports |
+| StripeConnect | `$client->stripeConnect` | API Key | Partner Stripe config |
+| SSO | `$client->sso` | API Key | Partner OAuth setup |
+| Webhooks | `$client->webhooks` | API Key | Partner webhooks |
+| API Keys | `$client->apiKeys` | API Key | Partner key management |
+| Compliance | `$client->compliance` | API Key | GDPR, tax, DPA |
+| Profile | `$client->profile` | API Key | Partner profile |
+| Settings | `$client->settings` | API Key | Partner settings |
 
 ---
 
