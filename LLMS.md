@@ -57,6 +57,13 @@ TASK: What do you want to do?
 │   ├── Threads → messages.createThread(), messages.sendInThread()
 │   └── Announcements → messages.sendAnnouncement()
 │
+├── Events (webinars, workshops)
+│   ├── List events → events.all()
+│   ├── Get upcoming → events.upcoming()
+│   ├── Register for event → events.register(eventId, userId)
+│   ├── Check in attendee → events.checkIn(eventId, userId)
+│   └── Get registrations → events.registrations(eventId)
+│
 ├── Trust Score & Reputation
 │   ├── Give trust reaction → trustScore.giveReaction()
 │   ├── Get user score → trustScore.getUserBreakdown()
@@ -97,12 +104,13 @@ TASK: What do you want to do?
 │  │   └── Use: API Key (sk_live_xxx)                                │
 │  │       Resources: users.signupAndLink, users.loginAndLink,       │
 │  │                  products, subscriptions, analytics, dashboard, │
-│  │                  webhooks, apiKeys, compliance                   │
+│  │                  webhooks, apiKeys, compliance, forums,         │
+│  │                  notifications, certificates, coupons           │
 │  │                                                                  │
 │  └── USER (user-owned actions)                                      │
 │      └── Use: Bearer Token (from signupAndLink/loginAndLink)       │
-│          Resources: guilds, alliances, messages, trustScore,       │
-│                     userStripeConnect                               │
+│          Resources: guilds, alliances, messages, events,           │
+│                     trustScore, userStripeConnect                   │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -159,24 +167,30 @@ $userClient = PartnerClient::create([
 $guild = $userClient->guilds->create([...]);       // User becomes owner
 $userClient->messages->startConversation([...]);   // User sends message
 $userClient->alliances->apply([...]);              // User's guild applies
+$userClient->events->all([...]);                   // User views events
+$userClient->events->register($eventId);           // User registers for event
 $userClient->trustScore->giveReaction([...]);      // User gives trust
 $userClient->userStripeConnect->onboard([...]);    // User becomes seller
 ```
 
 ### Resource Authentication Requirements
 
-| Resource | Auth Type | Description |
-|----------|-----------|-------------|
-| `users.signupAndLink()` | API Key | Partner creates user |
-| `users.loginAndLink()` | API Key | Partner authenticates user |
-| `products`, `subscriptions` | API Key | Partner manages catalog |
-| `analytics`, `dashboard` | API Key | Partner views stats |
-| `webhooks`, `apiKeys` | API Key | Partner configuration |
-| **`guilds`** | **User Token** | User creates/manages guilds |
-| **`alliances`** | **User Token** | User's guild joins alliances |
-| **`messages`** | **User Token** | User sends messages |
-| **`trustScore`** | **User Token** | User gives/receives trust |
-| **`userStripeConnect`** | **User Token** | User becomes seller |
+| Resource | Auth Type | Tenant Required | Description |
+|----------|-----------|-----------------|-------------|
+| `users.signupAndLink()` | API Key | No | Partner creates user |
+| `users.loginAndLink()` | API Key | No | Partner authenticates user |
+| `products`, `subscriptions` | API Key | No | Partner manages catalog |
+| `analytics`, `dashboard` | API Key | No | Partner views stats |
+| `webhooks`, `apiKeys` | API Key | No | Partner configuration |
+| `compliance` | API Key | No | GDPR/compliance management |
+| `forums`, `notifications` | API Key | No | Partner manages community tools |
+| `certificates`, `coupons` | API Key | No | Partner manages marketing |
+| **`guilds`** | **User Token** | **Yes** | User creates/manages guilds |
+| **`alliances`** | **User Token** | **Yes** | User's guild joins alliances |
+| **`messages`** | **User Token** | **Yes** | User sends messages |
+| **`events`** | **User Token** | **Yes** | User views/registers for events |
+| **`trustScore`** | **User Token** | **Yes** | User gives/receives trust |
+| **`userStripeConnect`** | **User Token** | **Yes** | User becomes seller |
 
 ### Complete Integration Flow
 
@@ -895,6 +909,94 @@ $client->messages->removeParticipant(int $conversationId, int $userId): array
 
 ---
 
+## Events (Webinars & Workshops)
+
+Events are live sessions, webinars, and workshops that users can attend.
+
+**IMPORTANT**: This resource requires Bearer Token authentication (user token from signupAndLink/loginAndLink) and tenant configuration.
+
+### events.all()
+
+**Purpose**: List all events in the tenant.
+
+```php
+// Method signature
+$events = $userClient->events->all(array $params = []): PaginatedResponse
+
+// Parameters
+$params = [
+    'status' => 'published',  // OPTIONAL: Filter by status
+    'per_page' => 15,         // OPTIONAL: Items per page
+];
+```
+
+### events.upcoming()
+
+**Purpose**: Get upcoming events.
+
+```php
+// Method signature
+$events = $userClient->events->upcoming(array $params = []): PaginatedResponse
+```
+
+### events.register()
+
+**Purpose**: Register a user for an event.
+
+```php
+// Method signature
+$result = $userClient->events->register(int $eventId, int $userId, array $data = []): array
+
+// Response
+[
+    'message' => 'Registration successful',
+    'registration' => [
+        'id' => 1,
+        'event_id' => 123,
+        'user_id' => 456,
+        'status' => 'confirmed',
+    ],
+]
+```
+
+### events.checkIn()
+
+**Purpose**: Check in an attendee at the event.
+
+```php
+// Method signature
+$result = $userClient->events->checkIn(int $eventId, int $userId): array
+```
+
+### Event Management
+
+```php
+// Create an event
+$event = $userClient->events->create([
+    'name' => 'Workshop: Getting Started',
+    'description' => '...',
+    'starts_at' => '2025-02-01T10:00:00Z',
+    'ends_at' => '2025-02-01T12:00:00Z',
+]): array
+
+// Update event
+$userClient->events->updateEvent(int $eventId, array $data): array
+
+// Publish event
+$userClient->events->publish(int $eventId): array
+
+// Cancel event
+$userClient->events->cancel(int $eventId, ?string $reason = null): array
+
+// Get registrations
+$registrations = $userClient->events->registrations(int $eventId): PaginatedResponse
+
+// Get waitlist
+$waitlist = $userClient->events->waitlist(int $eventId): PaginatedResponse
+```
+
+---
+
 ## Trust Score (Reputation System)
 
 The Trust Score system builds reputation through weighted voting. Higher-level users have more influence.
@@ -1314,11 +1416,16 @@ $client = PartnerClient::create([
 | `subscriptions` | NO | Global partner routes |
 | `dashboard` | NO | Global partner routes |
 | `analytics` | NO | Global partner routes |
+| `forums` | NO | Global partner routes |
+| `notifications` | NO | Global partner routes |
+| `certificates` | NO | Global partner routes |
+| `coupons` | NO | Global partner routes |
 | **`guilds`** | **YES** | Tenant-scoped (`/v1/{tenant}/guilds/...`) |
 | **`alliances`** | **YES** | Tenant-scoped (`/v1/{tenant}/alliances/...`) |
-| **`messages`** | **YES** | Tenant-scoped |
-| **`trustScore`** | **YES** | Tenant-scoped |
-| **`userStripeConnect`** | **YES** | Tenant-scoped |
+| **`messages`** | **YES** | Tenant-scoped (`/v1/{tenant}/conversations/...`) |
+| **`events`** | **YES** | Tenant-scoped (`/v1/{tenant}/events/...`) |
+| **`trustScore`** | **YES** | Tenant-scoped (`/v1/{tenant}/community/...`) |
+| **`userStripeConnect`** | **YES** | Tenant-scoped (`/v1/{tenant}/user/stripe-connect/...`) |
 
 ### Two Client Pattern
 
@@ -1364,26 +1471,46 @@ PartnerClient::create(['api_key' => '...', 'tenant' => 'your-tenant-slug'])
 
 ## Available Resources
 
-| Resource | Property | Auth | Tenant | Use Case |
-|----------|----------|------|--------|----------|
-| Users | `$client->users` | API Key | No | User creation (signupAndLink, loginAndLink) |
-| **Guilds** | `$client->guilds` | **User Token** | **Yes** | User creates/manages guilds as owner |
-| **Alliances** | `$client->alliances` | **User Token** | **Yes** | User's guild joins federations |
-| **Messages** | `$client->messages` | **User Token** | **Yes** | User sends DMs, channel messages |
-| **TrustScore** | `$client->trustScore` | **User Token** | **Yes** | User gives/receives reputation |
-| **UserStripeConnect** | `$client->userStripeConnect` | **User Token** | **Yes** | User becomes seller |
-| Subscriptions | `$client->subscriptions` | API Key | No | Partner manages subscriptions |
-| Products | `$client->products` | API Key | No | Partner manages catalog |
-| Payments | `$client->payments` | API Key | No | Partner handles payments |
-| Dashboard | `$client->dashboard` | API Key | No | Partner views stats |
-| Analytics | `$client->analytics` | API Key | No | Partner reports |
-| StripeConnect | `$client->stripeConnect` | API Key | No | Partner Stripe config |
-| SSO | `$client->sso` | API Key | No | Partner OAuth setup |
-| Webhooks | `$client->webhooks` | API Key | No | Partner webhooks |
-| API Keys | `$client->apiKeys` | API Key | No | Partner key management |
-| Compliance | `$client->compliance` | API Key | No | GDPR, tax, DPA |
-| Profile | `$client->profile` | API Key | Partner profile |
-| Settings | `$client->settings` | API Key | Partner settings |
+### Tenant-Scoped Resources (User Operations)
+
+These resources require **Bearer Token** authentication (from `signupAndLink`/`loginAndLink`) and a **tenant** configuration. They use routes at `/v1/{tenant}/...`.
+
+| Resource | Property | Route Base | Use Case |
+|----------|----------|------------|----------|
+| **Guilds** | `$client->guilds` | `/v1/{tenant}/guilds` | User creates/manages guilds as owner |
+| **Alliances** | `$client->alliances` | `/v1/{tenant}/alliances` | User's guild joins federations |
+| **Messages** | `$client->messages` | `/v1/{tenant}/conversations` | User sends DMs, channel messages |
+| **Events** | `$client->events` | `/v1/{tenant}/events` | User views/registers for events |
+| **TrustScore** | `$client->trustScore` | `/v1/{tenant}/community` | User gives/receives reputation |
+| **UserStripeConnect** | `$client->userStripeConnect` | `/v1/{tenant}/user/stripe-connect` | User becomes seller |
+
+### Partner-Scoped Resources (Admin Operations)
+
+These resources require **API Key** authentication and use routes at `/v1/partners/...`. No tenant required.
+
+| Resource | Property | Route Base | Use Case |
+|----------|----------|------------|----------|
+| Users | `$client->users` | `/v1/partners/users` | User creation (signupAndLink, loginAndLink) |
+| Subscriptions | `$client->subscriptions` | `/v1/partners/subscriptions` | Partner manages subscriptions |
+| Products | `$client->products` | `/v1/partners/products` | Partner manages catalog |
+| Payments | `$client->payments` | `/v1/partners/payments` | Partner handles payments |
+| Dashboard | `$client->dashboard` | `/v1/partners/dashboard` | Partner views stats |
+| Analytics | `$client->analytics` | `/v1/partners/analytics` | Partner reports |
+| StripeConnect | `$client->stripeConnect` | `/v1/partners/stripe-connect` | Partner Stripe config |
+| SSO | `$client->sso` | `/v1/partners/sso` | Partner OAuth setup |
+| Webhooks | `$client->webhooks` | `/v1/partners/webhooks` | Partner webhooks |
+| API Keys | `$client->apiKeys` | `/v1/partners/api-keys` | Partner key management |
+| Compliance | `$client->compliance` | `/v1/partners/compliance` | GDPR, tax, DPA |
+| Profile | `$client->profile` | `/v1/partners/profile` | Partner profile |
+| Settings | `$client->settings` | `/v1/partners/settings` | Partner settings |
+| Forums | `$client->forums` | `/v1/partners/forums` | Partner manages forums |
+| Notifications | `$client->notifications` | `/v1/partners/notifications` | Partner sends notifications |
+| Certificates | `$client->certificates` | `/v1/partners/certificates` | Partner manages certificates |
+| Coupons | `$client->coupons` | `/v1/partners/coupons` | Partner manages coupons |
+| Affiliates | `$client->affiliates` | `/v1/partners/affiliates` | Partner affiliate program |
+| Media | `$client->media` | `/v1/partners/media` | Partner media library |
+| Gamification | `$client->gamification` | `/v1/partners/gamification` | Partner gamification stats |
+| Reviews | `$client->reviews` | `/v1/partners/reviews` | Partner manages reviews |
 
 ---
 
