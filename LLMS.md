@@ -95,8 +95,9 @@ TASK: What do you want to do?
 │  Who is performing the action?                                      │
 │  ├── PARTNER (admin/backend operations)                             │
 │  │   └── Use: API Key (sk_live_xxx)                                │
-│  │       Resources: users.signupAndLink, products, subscriptions,  │
-│  │                  analytics, dashboard, webhooks, apiKeys        │
+│  │       Resources: users.signupAndLink, users.loginAndLink,       │
+│  │                  products, subscriptions, analytics, dashboard, │
+│  │                  webhooks, apiKeys, compliance                   │
 │  │                                                                  │
 │  └── USER (user-owned actions)                                      │
 │      └── Use: Bearer Token (from signupAndLink/loginAndLink)       │
@@ -108,18 +109,19 @@ TASK: What do you want to do?
 
 ### Pattern 1: Partner API Key (Admin Operations)
 
-**Use for**: Creating users, managing products, viewing analytics, admin operations.
+**Use for**: Creating users, authenticating users, managing products, viewing analytics, admin operations.
 
 ```php
 use Sensei\PartnerSDK\PartnerClient;
 
 $partnerClient = PartnerClient::create([
     'api_key' => 'sk_live_xxxxxxxxxxxxxxxx',  // Partner API key
-    'base_url' => 'https://api.senseitemple.com/api',
+    'base_url' => 'https://sensei-backend-staging-dtzzw6.laravel.cloud/api/v1/your-tenant',
 ]);
 
 // Partner-level operations
-$partnerClient->users->signupAndLink([...]);      // Create user
+$partnerClient->users->signupAndLink([...]);      // Register NEW user
+$partnerClient->users->loginAndLink([...]);       // Login EXISTING user
 $partnerClient->products->all();                   // List products
 $partnerClient->analytics->revenue();              // View revenue
 $partnerClient->subscriptions->create([...]);      // Create subscription
@@ -131,8 +133,16 @@ $partnerClient->subscriptions->create([...]);      // Create subscription
 
 ```php
 // Step 1: Partner creates/authenticates user and gets token
+// Option A: NEW user registration
 $result = $partnerClient->users->signupAndLink([
     'name' => 'John Doe',
+    'email' => 'john@example.com',
+    'password' => 'SecurePass123!',
+]);
+$userToken = $result['token'];
+
+// Option B: EXISTING user login
+$result = $partnerClient->users->loginAndLink([
     'email' => 'john@example.com',
     'password' => 'SecurePass123!',
 ]);

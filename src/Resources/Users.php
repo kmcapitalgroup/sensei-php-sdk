@@ -347,7 +347,42 @@ class Users extends Resource
     public function signupAndLink(array $data): array
     {
         // This endpoint is at /api/v1/senseitemple/signup-and-link
-        // Base URL should be https://xxx/api/v1, so we use 'senseitemple/signup-and-link'
-        return $this->client->post('senseitemple/signup-and-link', $data);
+        // Base URL should be https://xxx/api, so we use 'v1/senseitemple/signup-and-link'
+        return $this->client->post('v1/senseitemple/signup-and-link', $data);
+    }
+
+    /**
+     * Login and link an existing user to the partner's tenant
+     *
+     * This method authenticates an existing user and links them to the partner's
+     * tenant guild. Used for white-label partner integrations with existing users.
+     *
+     * IMPORTANT: This endpoint requires Partner API Key authentication.
+     * The user is automatically linked to the partner's tenant guild if not already a member.
+     *
+     * @param array $credentials Login credentials:
+     *   - email (required): User's email address
+     *   - password (required): User's password
+     *
+     * @return array Response containing:
+     *   - token: Authentication token for the user
+     *   - user: User data
+     *   - guild: Guild info (id, name, slug) or null
+     *   - tenant: Tenant info (id, name)
+     *   - message: Success message
+     *
+     * @example
+     * $response = $client->users->loginAndLink([
+     *     'email' => 'john@example.com',
+     *     'password' => 'SecureP@ss123!',
+     * ]);
+     *
+     * // Store the user's token for subsequent requests
+     * $userToken = $response['token'];
+     */
+    public function loginAndLink(array $credentials): array
+    {
+        // This endpoint is at /api/v1/senseitemple/login-and-link
+        return $this->client->post('v1/senseitemple/login-and-link', $credentials);
     }
 }
