@@ -19,6 +19,7 @@ final class Configuration
     private ?string $apiKey;
     private ?string $bearerToken;
     private string $baseUrl;
+    private ?string $tenant;
     private int $timeout;
     private int $connectTimeout;
     private int $maxRetries;
@@ -29,7 +30,8 @@ final class Configuration
     public function __construct(
         ?string $apiKey = null,
         ?string $bearerToken = null,
-        string $baseUrl = 'https://api.senseitemple.com/api',
+        string $baseUrl = 'https://sensei-backend-staging-dtzzw6.laravel.cloud/api',
+        ?string $tenant = null,
         int $timeout = 30,
         int $connectTimeout = 10,
         int $maxRetries = 3,
@@ -47,7 +49,13 @@ final class Configuration
 
         $this->apiKey = $apiKey;
         $this->bearerToken = $bearerToken;
-        $this->baseUrl = rtrim($baseUrl, '/');
+
+        // Auto-detect tenant from base_url if not explicitly provided
+        // Handles URLs like: https://api.sensei.com/api/v1/firstclasscitizen
+        $parsedUrl = $this->parseBaseUrlWithTenant($baseUrl, $tenant);
+        $this->baseUrl = $parsedUrl['base_url'];
+        $this->tenant = $parsedUrl['tenant'];
+
         $this->timeout = $timeout;
         $this->connectTimeout = $connectTimeout;
         $this->maxRetries = max(0, $maxRetries);
@@ -64,7 +72,8 @@ final class Configuration
         return new self(
             apiKey: $config['api_key'] ?? null,
             bearerToken: $config['bearer_token'] ?? null,
-            baseUrl: $config['base_url'] ?? 'https://api.senseitemple.com/api',
+            baseUrl: $config['base_url'] ?? 'https://sensei-backend-staging-dtzzw6.laravel.cloud/api',
+            tenant: $config['tenant'] ?? null,
             timeout: $config['timeout'] ?? 30,
             connectTimeout: $config['connect_timeout'] ?? 10,
             maxRetries: $config['max_retries'] ?? 3,
@@ -87,6 +96,50 @@ final class Configuration
     public function getBaseUrl(): string
     {
         return $this->baseUrl;
+    }
+
+    public function getTenant(): ?string
+    {
+        return $this->tenant;
+    }
+
+    /**
+     * Parse base URL to extract tenant if embedded
+     *
+     * Handles URLs like:
+     * - https://api.sensei.com/api/v1/firstclasscitizen → base: /api, tenant: firstclasscitizen
+     * - https://api.sensei.com/api → base: /api, tenant: null
+     *
+     * @param string $baseUrl The base URL (may contain tenant)
+     * @param string|null $explicitTenant Explicitly provided tenant (takes priority)
+     * @return array{base_url: string, tenant: string|null}
+     */
+    private function parseBaseUrlWithTenant(string $baseUrl, ?string $explicitTenant): array
+    {
+        $baseUrl = rtrim($baseUrl, '/');
+
+        // If tenant is explicitly provided, use it and don't parse
+        if (!empty($explicitTenant)) {
+            return [
+                'base_url' => $baseUrl,
+                'tenant' => $explicitTenant,
+            ];
+        }
+
+        // Check if URL ends with /api/v1/{tenant} pattern
+        // Pattern: /api/v1/some-tenant-slug or /api/v1/sometenant
+        if (preg_match('#^(.+/api)/v1/([a-zA-Z0-9_-]+)$#', $baseUrl, $matches)) {
+            return [
+                'base_url' => $matches[1],  // Everything up to /api
+                'tenant' => $matches[2],     // The tenant slug
+            ];
+        }
+
+        // No tenant in URL
+        return [
+            'base_url' => $baseUrl,
+            'tenant' => null,
+        ];
     }
 
     public function getTimeout(): int
@@ -165,6 +218,7 @@ final class Configuration
             apiKey: $apiKey,
             bearerToken: $this->bearerToken,
             baseUrl: $this->baseUrl,
+            tenant: $this->tenant,
             timeout: $this->timeout,
             connectTimeout: $this->connectTimeout,
             maxRetries: $this->maxRetries,
@@ -183,6 +237,7 @@ final class Configuration
             apiKey: $this->apiKey,
             bearerToken: $bearerToken,
             baseUrl: $this->baseUrl,
+            tenant: $this->tenant,
             timeout: $this->timeout,
             connectTimeout: $this->connectTimeout,
             maxRetries: $this->maxRetries,
@@ -201,6 +256,26 @@ final class Configuration
             apiKey: $this->apiKey,
             bearerToken: $this->bearerToken,
             baseUrl: $baseUrl,
+            tenant: $this->tenant,
+            timeout: $this->timeout,
+            connectTimeout: $this->connectTimeout,
+            maxRetries: $this->maxRetries,
+            verifySSL: $this->verifySSL,
+            retryOnRateLimit: $this->retryOnRateLimit,
+            httpOptions: $this->httpOptions
+        );
+    }
+
+    /**
+     * Create new configuration with different tenant
+     */
+    public function withTenant(string $tenant): self
+    {
+        return new self(
+            apiKey: $this->apiKey,
+            bearerToken: $this->bearerToken,
+            baseUrl: $this->baseUrl,
+            tenant: $tenant,
             timeout: $this->timeout,
             connectTimeout: $this->connectTimeout,
             maxRetries: $this->maxRetries,

@@ -30,7 +30,7 @@ class Compliance extends Resource
      */
     public function dpaList(): array
     {
-        return $this->client->get($this->path('gdpr/dpa'));
+        return $this->client->get($this->path('dpa'));
     }
 
     /**
@@ -38,7 +38,7 @@ class Compliance extends Resource
      */
     public function signDpa(int $dpaId, array $signerInfo): array
     {
-        return $this->client->post($this->path("gdpr/dpa/{$dpaId}/sign"), $signerInfo);
+        return $this->client->post($this->path('dpa/sign'), $signerInfo);
     }
 
     /**
@@ -46,7 +46,7 @@ class Compliance extends Resource
      */
     public function getCurrentDpa(): array
     {
-        return $this->client->get($this->path('gdpr/dpa/current'));
+        return $this->client->get($this->path('dpa'));
     }
 
     /**
@@ -54,15 +54,15 @@ class Compliance extends Resource
      */
     public function downloadDpa(int $dpaId): array
     {
-        return $this->client->get($this->path("gdpr/dpa/{$dpaId}/download"));
+        return $this->client->get($this->path('dpa/download'));
     }
 
     /**
-     * Get data export request
+     * Get data export requests list
      */
     public function dataExportRequests(array $params = []): PaginatedResponse
     {
-        return $this->paginate($this->path('gdpr/export-requests'), $params);
+        return $this->paginate($this->path('gdpr/exports'), $params);
     }
 
     /**
@@ -74,19 +74,35 @@ class Compliance extends Resource
     }
 
     /**
+     * Get data export request by ID
+     */
+    public function getDataExportRequest(int $requestId): array
+    {
+        return $this->client->get($this->path("gdpr/exports/{$requestId}"));
+    }
+
+    /**
      * Get data export download URL
      */
     public function getDataExportUrl(int $requestId): array
     {
-        return $this->client->get($this->path("gdpr/export/{$requestId}/download"));
+        return $this->client->get($this->path("gdpr/exports/{$requestId}/download"));
     }
 
     /**
-     * Get deletion requests
+     * Get deletion requests list
      */
     public function deletionRequests(array $params = []): PaginatedResponse
     {
-        return $this->paginate($this->path('gdpr/deletion-requests'), $params);
+        return $this->paginate($this->path('gdpr/deletions'), $params);
+    }
+
+    /**
+     * Get deletion request by ID
+     */
+    public function getDeletionRequest(int $requestId): array
+    {
+        return $this->client->get($this->path("gdpr/deletions/{$requestId}"));
     }
 
     /**
@@ -94,8 +110,26 @@ class Compliance extends Resource
      */
     public function requestDeletion(int $userId, string $reason = ''): array
     {
-        return $this->client->post($this->path('gdpr/deletion'), [
+        return $this->client->post($this->path('gdpr/delete'), [
             'user_id' => $userId,
+            'reason' => $reason,
+        ]);
+    }
+
+    /**
+     * Approve a deletion request
+     */
+    public function approveDeletion(int $requestId): array
+    {
+        return $this->client->patch($this->path("gdpr/deletions/{$requestId}/approve"));
+    }
+
+    /**
+     * Reject a deletion request
+     */
+    public function rejectDeletion(int $requestId, string $reason = ''): array
+    {
+        return $this->client->patch($this->path("gdpr/deletions/{$requestId}/reject"), [
             'reason' => $reason,
         ]);
     }
@@ -129,19 +163,104 @@ class Compliance extends Resource
     }
 
     /**
-     * Get data retention settings
+     * Get data retention policies
      */
-    public function retentionSettings(): array
+    public function retentionPolicies(array $params = []): array
     {
-        return $this->client->get($this->path('gdpr/retention'));
+        return $this->client->get($this->path('retention/policies'), $params);
     }
 
     /**
-     * Update data retention settings
+     * Get data retention settings (alias for retentionPolicies)
+     */
+    public function retentionSettings(): array
+    {
+        return $this->retentionPolicies();
+    }
+
+    /**
+     * Create data retention policy
+     */
+    public function createRetentionPolicy(array $data): array
+    {
+        return $this->client->post($this->path('retention/policies'), $data);
+    }
+
+    /**
+     * Get specific retention policy
+     */
+    public function getRetentionPolicy(int $policyId): array
+    {
+        return $this->client->get($this->path("retention/policies/{$policyId}"));
+    }
+
+    /**
+     * Update data retention policy
+     */
+    public function updateRetentionPolicy(int $policyId, array $settings): array
+    {
+        return $this->client->put($this->path("retention/policies/{$policyId}"), $settings);
+    }
+
+    /**
+     * Update data retention settings (alias for updateRetentionPolicy)
      */
     public function updateRetentionSettings(array $settings): array
     {
-        return $this->client->put($this->path('gdpr/retention'), $settings);
+        // For backwards compatibility, update first policy or create new one
+        $policies = $this->retentionPolicies();
+        if (!empty($policies['data'][0]['id'])) {
+            return $this->updateRetentionPolicy($policies['data'][0]['id'], $settings);
+        }
+        return $this->createRetentionPolicy($settings);
+    }
+
+    /**
+     * Delete retention policy
+     */
+    public function deleteRetentionPolicy(int $policyId): array
+    {
+        return $this->client->delete($this->path("retention/policies/{$policyId}"));
+    }
+
+    /**
+     * Preview retention policy enforcement
+     */
+    public function previewRetentionPolicy(int $policyId): array
+    {
+        return $this->client->post($this->path("retention/policies/{$policyId}/preview"));
+    }
+
+    /**
+     * Enforce retention policy
+     */
+    public function enforceRetentionPolicy(int $policyId): array
+    {
+        return $this->client->post($this->path("retention/policies/{$policyId}/enforce"));
+    }
+
+    /**
+     * Get retention policy enforcement history
+     */
+    public function retentionPolicyHistory(int $policyId): array
+    {
+        return $this->client->get($this->path("retention/policies/{$policyId}/history"));
+    }
+
+    /**
+     * Activate legal hold on retention policy
+     */
+    public function activateLegalHold(int $policyId): array
+    {
+        return $this->client->post($this->path("retention/policies/{$policyId}/legal-hold/activate"));
+    }
+
+    /**
+     * Release legal hold on retention policy
+     */
+    public function releaseLegalHold(int $policyId): array
+    {
+        return $this->client->post($this->path("retention/policies/{$policyId}/legal-hold/release"));
     }
 
     // === Tax Compliance ===

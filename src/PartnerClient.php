@@ -136,6 +136,30 @@ class PartnerClient
     }
 
     /**
+     * Replace {tenant} placeholder in endpoint with configured tenant
+     *
+     * @throws SenseiPartnerException if endpoint requires tenant but none configured
+     */
+    private function resolveTenantInEndpoint(string $endpoint): string
+    {
+        if (!str_contains($endpoint, '{tenant}')) {
+            return $endpoint;
+        }
+
+        $tenant = $this->config->getTenant();
+
+        if (empty($tenant)) {
+            throw new SenseiPartnerException(
+                'This endpoint requires a tenant to be configured. ' .
+                'Please set the "tenant" option when creating the client: ' .
+                'PartnerClient::create([\'api_key\' => \'...\', \'tenant\' => \'your-tenant-slug\'])'
+            );
+        }
+
+        return str_replace('{tenant}', $tenant, $endpoint);
+    }
+
+    /**
      * Make HTTP request with authentication
      *
      * @throws SenseiPartnerException
@@ -143,6 +167,9 @@ class PartnerClient
     public function request(string $method, string $endpoint, array $options = []): array
     {
         $options = $this->addAuthentication($options);
+
+        // Replace {tenant} placeholder with configured tenant
+        $endpoint = $this->resolveTenantInEndpoint($endpoint);
 
         try {
             $response = $this->httpClient->request($method, ltrim($endpoint, '/'), $options);

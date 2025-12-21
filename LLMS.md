@@ -13,6 +13,10 @@ min_php: 8.1
 dependencies:
   - guzzlehttp/guzzle: ^7.0
 installation: composer require sensei/partner-sdk
+environments:
+  staging: https://sensei-backend-staging-dtzzw6.laravel.cloud/api
+  production: https://api.sensei.com/api  # Coming soon
+current_environment: staging
 ```
 
 ## Quick Decision Tree
@@ -1222,6 +1226,8 @@ if ($status['data']['onboarded']) {
 
 ## Configuration Reference
 
+### Configuration Options
+
 ```php
 $client = PartnerClient::create([
     // Authentication (one required)
@@ -1229,8 +1235,8 @@ $client = PartnerClient::create([
     'bearer_token' => 'user_jwt_token',    // OR user token
 
     // Endpoints
-    'base_url' => 'https://api.senseitemple.com/api',
-    'tenant' => 'your-tenant-slug',        // Required for user operations
+    'base_url' => 'https://api.senseitemple.com/api',  // Base URL (NO tenant here!)
+    'tenant' => 'your-tenant-slug',        // Tenant slug (separate from base_url)
 
     // Timeouts (seconds)
     'timeout' => 30,                       // Request timeout
@@ -1245,28 +1251,127 @@ $client = PartnerClient::create([
 ]);
 ```
 
+### Tenant Configuration (Auto-Detection)
+
+The SDK **automatically detects** the tenant from the base URL if you copy the full URL from the partner dashboard.
+
+```
+AUTO-DETECTION: Copy the URL directly from dashboard
+┌─────────────────────────────────────────────────────────────────────┐
+│ // SDK will auto-extract tenant from URL                            │
+│ 'base_url' => 'https://sensei-backend-staging-dtzzw6.laravel.cloud/api/v1/firstclasscitizen'
+│                                                                     │
+│ // Automatically parsed as:                                         │
+│ // base_url → https://sensei-backend-staging-dtzzw6.laravel.cloud/api
+│ // tenant   → firstclasscitizen                                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+EXPLICIT CONFIGURATION (also supported):
+┌─────────────────────────────────────────────────────────────────────┐
+│ 'base_url' => 'https://sensei-backend-staging-dtzzw6.laravel.cloud/api'
+│ 'tenant' => 'firstclasscitizen'                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**How it works:**
+- URL pattern `/api/v1/{tenant}` is detected and parsed automatically
+- The tenant is extracted and stored separately
+- Compliance routes use `/v1/partners/...` (no tenant)
+- User routes use `/v1/{tenant}/...` (with tenant)
+
+**Staging vs Production URLs:**
+```php
+// STAGING (current)
+$client = PartnerClient::create([
+    'api_key' => 'sk_live_xxx',
+    'base_url' => 'https://sensei-backend-staging-dtzzw6.laravel.cloud/api/v1/firstclasscitizen',
+]);
+
+// PRODUCTION (future)
+$client = PartnerClient::create([
+    'api_key' => 'sk_live_xxx',
+    'base_url' => 'https://api.sensei.com/api/v1/firstclasscitizen',
+]);
+```
+
+### When is Tenant Required?
+
+| Resource | Tenant Required | Reason |
+|----------|-----------------|--------|
+| `compliance` | NO | Global partner routes (`/v1/partners/compliance/...`) |
+| `users` | NO | Global partner routes (`/v1/partners/users/...`) |
+| `products` | NO | Global partner routes |
+| `subscriptions` | NO | Global partner routes |
+| `dashboard` | NO | Global partner routes |
+| `analytics` | NO | Global partner routes |
+| **`guilds`** | **YES** | Tenant-scoped (`/v1/{tenant}/guilds/...`) |
+| **`alliances`** | **YES** | Tenant-scoped (`/v1/{tenant}/alliances/...`) |
+| **`messages`** | **YES** | Tenant-scoped |
+| **`trustScore`** | **YES** | Tenant-scoped |
+| **`userStripeConnect`** | **YES** | Tenant-scoped |
+
+### Two Client Pattern
+
+For most integrations, you'll need two client configurations:
+
+```php
+// 1. Partner Client (NO tenant needed) - for admin operations
+$partnerClient = PartnerClient::create([
+    'api_key' => 'sk_live_xxx',
+    'base_url' => 'https://api.senseitemple.com/api',
+    // NO tenant - uses global partner routes
+]);
+
+// Partner operations (no tenant needed)
+$partnerClient->users->signupAndLink([...]);           // → /v1/partners/users/signup-and-link
+$partnerClient->compliance->requestDeletion($userId);   // → /v1/partners/compliance/gdpr/delete
+$partnerClient->products->all();                        // → /v1/partners/products
+
+// 2. User Client (tenant REQUIRED) - for user-context operations
+$userClient = PartnerClient::create([
+    'bearer_token' => $userToken,
+    'base_url' => 'https://api.senseitemple.com/api',
+    'tenant' => 'your-tenant-slug',  // Required for tenant-scoped routes
+]);
+
+// User operations (tenant required)
+$userClient->guilds->create([...]);         // → /v1/your-tenant-slug/guilds
+$userClient->alliances->create([...]);      // → /v1/your-tenant-slug/alliances
+$userClient->trustScore->giveReaction([...]); // → /v1/your-tenant-slug/community/trust
+```
+
+### Error: Missing Tenant
+
+If you call a tenant-scoped resource without configuring a tenant, you'll get:
+
+```
+SenseiPartnerException: This endpoint requires a tenant to be configured.
+Please set the "tenant" option when creating the client:
+PartnerClient::create(['api_key' => '...', 'tenant' => 'your-tenant-slug'])
+```
+
 ---
 
 ## Available Resources
 
-| Resource | Property | Auth | Use Case |
-|----------|----------|------|----------|
-| Users | `$client->users` | API Key | User creation (signupAndLink, loginAndLink) |
-| **Guilds** | `$client->guilds` | **User Token** | User creates/manages guilds as owner |
-| **Alliances** | `$client->alliances` | **User Token** | User's guild joins federations |
-| **Messages** | `$client->messages` | **User Token** | User sends DMs, channel messages |
-| **TrustScore** | `$client->trustScore` | **User Token** | User gives/receives reputation |
-| **UserStripeConnect** | `$client->userStripeConnect` | **User Token** | User becomes seller |
-| Subscriptions | `$client->subscriptions` | API Key | Partner manages subscriptions |
-| Products | `$client->products` | API Key | Partner manages catalog |
-| Payments | `$client->payments` | API Key | Partner handles payments |
-| Dashboard | `$client->dashboard` | API Key | Partner views stats |
-| Analytics | `$client->analytics` | API Key | Partner reports |
-| StripeConnect | `$client->stripeConnect` | API Key | Partner Stripe config |
-| SSO | `$client->sso` | API Key | Partner OAuth setup |
-| Webhooks | `$client->webhooks` | API Key | Partner webhooks |
-| API Keys | `$client->apiKeys` | API Key | Partner key management |
-| Compliance | `$client->compliance` | API Key | GDPR, tax, DPA |
+| Resource | Property | Auth | Tenant | Use Case |
+|----------|----------|------|--------|----------|
+| Users | `$client->users` | API Key | No | User creation (signupAndLink, loginAndLink) |
+| **Guilds** | `$client->guilds` | **User Token** | **Yes** | User creates/manages guilds as owner |
+| **Alliances** | `$client->alliances` | **User Token** | **Yes** | User's guild joins federations |
+| **Messages** | `$client->messages` | **User Token** | **Yes** | User sends DMs, channel messages |
+| **TrustScore** | `$client->trustScore` | **User Token** | **Yes** | User gives/receives reputation |
+| **UserStripeConnect** | `$client->userStripeConnect` | **User Token** | **Yes** | User becomes seller |
+| Subscriptions | `$client->subscriptions` | API Key | No | Partner manages subscriptions |
+| Products | `$client->products` | API Key | No | Partner manages catalog |
+| Payments | `$client->payments` | API Key | No | Partner handles payments |
+| Dashboard | `$client->dashboard` | API Key | No | Partner views stats |
+| Analytics | `$client->analytics` | API Key | No | Partner reports |
+| StripeConnect | `$client->stripeConnect` | API Key | No | Partner Stripe config |
+| SSO | `$client->sso` | API Key | No | Partner OAuth setup |
+| Webhooks | `$client->webhooks` | API Key | No | Partner webhooks |
+| API Keys | `$client->apiKeys` | API Key | No | Partner key management |
+| Compliance | `$client->compliance` | API Key | No | GDPR, tax, DPA |
 | Profile | `$client->profile` | API Key | Partner profile |
 | Settings | `$client->settings` | API Key | Partner settings |
 
@@ -1324,6 +1429,7 @@ $status = $client->compliance->gdprStatus();
 ```php
 // Request data export for a user
 $request = $client->compliance->requestDataExport(int $userId);
+// Route: POST /v1/partners/compliance/gdpr/export
 
 // Response
 [
@@ -1333,8 +1439,13 @@ $request = $client->compliance->requestDataExport(int $userId);
     'requested_at' => '2025-01-20T10:00:00Z',
 ]
 
-// Check export status and get download URL when ready
-$export = $client->compliance->getDataExportUrl(int $requestId);
+// Get specific export request
+$export = $client->compliance->getDataExportRequest(int $requestId);
+// Route: GET /v1/partners/compliance/gdpr/exports/{requestId}
+
+// Get download URL when ready
+$download = $client->compliance->getDataExportUrl(int $requestId);
+// Route: GET /v1/partners/compliance/gdpr/exports/{requestId}/download
 
 // Response (when completed)
 [
@@ -1346,6 +1457,7 @@ $export = $client->compliance->getDataExportUrl(int $requestId);
 
 // List all export requests
 $requests = $client->compliance->dataExportRequests(['status' => 'completed']);
+// Route: GET /v1/partners/compliance/gdpr/exports
 ```
 
 ### Data Deletion (Article 17 - Right to Erasure)
@@ -1356,6 +1468,7 @@ $result = $client->compliance->requestDeletion(
     int $userId,
     string $reason = 'User requested account deletion'
 );
+// Route: POST /v1/partners/compliance/gdpr/delete
 
 // Response
 [
@@ -1368,6 +1481,19 @@ $result = $client->compliance->requestDeletion(
 
 // List deletion requests
 $requests = $client->compliance->deletionRequests(['status' => 'pending']);
+// Route: GET /v1/partners/compliance/gdpr/deletions
+
+// Get specific deletion request
+$request = $client->compliance->getDeletionRequest(int $requestId);
+// Route: GET /v1/partners/compliance/gdpr/deletions/{requestId}
+
+// Approve deletion request (admin action)
+$result = $client->compliance->approveDeletion(int $requestId);
+// Route: PATCH /v1/partners/compliance/gdpr/deletions/{requestId}/approve
+
+// Reject deletion request with reason
+$result = $client->compliance->rejectDeletion(int $requestId, 'Reason for rejection');
+// Route: PATCH /v1/partners/compliance/gdpr/deletions/{requestId}/reject
 ```
 
 **Important**: Deletion requests have a grace period (typically 7 days) before execution, allowing users to cancel if needed.
@@ -1413,6 +1539,7 @@ $consents = $client->compliance->consents(['user_id' => 456]);
 ```php
 // Get current DPA document
 $dpa = $client->compliance->getCurrentDpa();
+// Route: GET /v1/partners/compliance/dpa
 
 // Response
 [
@@ -1431,6 +1558,7 @@ $result = $client->compliance->signDpa(int $dpaId, [
     'signer_email' => 'john@company.com',
     'company_name' => 'Acme Inc.',
 ]);
+// Route: POST /v1/partners/compliance/dpa/sign
 
 // Response
 [
@@ -1443,31 +1571,66 @@ $result = $client->compliance->signDpa(int $dpaId, [
 
 // Download signed DPA as PDF
 $pdf = $client->compliance->downloadDpa(int $dpaId);
+// Route: GET /v1/partners/compliance/dpa/download
 // Returns: ['download_url' => 'https://...']
 
 // List all DPAs (including historical versions)
 $dpas = $client->compliance->dpaList();
+// Route: GET /v1/partners/compliance/dpa
 ```
 
-### Data Retention Settings (Article 5)
+### Data Retention Policies (Article 5)
 
 ```php
-// Get current retention settings
-$settings = $client->compliance->retentionSettings();
+// Get all retention policies
+$policies = $client->compliance->retentionPolicies();
 
 // Response
 [
-    'user_data' => ['retention_days' => 365, 'auto_delete' => false],
-    'activity_logs' => ['retention_days' => 90, 'auto_delete' => true],
-    'messages' => ['retention_days' => 180, 'auto_delete' => false],
-    'analytics' => ['retention_days' => 730, 'auto_delete' => true],
+    'data' => [
+        [
+            'id' => 1,
+            'name' => 'User Data Policy',
+            'data_type' => 'user_data',
+            'retention_days' => 365,
+            'auto_delete' => false,
+            'legal_hold' => false,
+        ],
+    ],
 ]
 
-// Update retention settings
-$result = $client->compliance->updateRetentionSettings([
-    'activity_logs' => ['retention_days' => 30, 'auto_delete' => true],
-    'messages' => ['retention_days' => 90, 'auto_delete' => true],
+// Create retention policy
+$policy = $client->compliance->createRetentionPolicy([
+    'name' => 'Activity Logs Policy',
+    'data_type' => 'activity_logs',
+    'retention_days' => 90,
+    'auto_delete' => true,
 ]);
+
+// Get specific policy
+$policy = $client->compliance->getRetentionPolicy(int $policyId);
+
+// Update retention policy
+$result = $client->compliance->updateRetentionPolicy($policyId, [
+    'retention_days' => 30,
+    'auto_delete' => true,
+]);
+
+// Delete retention policy
+$result = $client->compliance->deleteRetentionPolicy(int $policyId);
+
+// Preview policy enforcement (shows what will be affected)
+$preview = $client->compliance->previewRetentionPolicy(int $policyId);
+
+// Enforce retention policy (actually delete old data)
+$result = $client->compliance->enforceRetentionPolicy(int $policyId);
+
+// Get policy enforcement history
+$history = $client->compliance->retentionPolicyHistory(int $policyId);
+
+// Legal hold (prevents data deletion)
+$client->compliance->activateLegalHold(int $policyId);    // Activate
+$client->compliance->releaseLegalHold(int $policyId);     // Release
 ```
 
 ### Audit Logs (Article 30)
