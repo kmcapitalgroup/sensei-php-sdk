@@ -10,10 +10,16 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  * Events resource
  *
  * Manage live events, webinars, and workshops
+ *
+ * IMPORTANT: This resource requires:
+ * - Bearer Token authentication (user token from signupAndLink/loginAndLink)
+ * - Tenant configuration in the client
+ *
+ * The routes use /v1/{tenant}/events for user-owned operations.
  */
 class Events extends Resource
 {
-    protected string $basePath = 'v1/partners/events';
+    protected string $basePath = 'v1/{tenant}/events';
 
     /**
      * List all events

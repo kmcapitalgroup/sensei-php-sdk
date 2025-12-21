@@ -10,10 +10,16 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  * Messaging resource
  *
  * Manage direct messages, conversations, and channel messages
+ *
+ * IMPORTANT: This resource requires:
+ * - Bearer Token authentication (user token from signupAndLink/loginAndLink)
+ * - Tenant configuration in the client
+ *
+ * The routes use /v1/{tenant}/conversations for user-owned operations.
  */
 class Messages extends Resource
 {
-    protected string $basePath = 'v1/partners/messages';
+    protected string $basePath = 'v1/{tenant}/conversations';
 
     // === Conversations (DMs) ===
 
@@ -101,7 +107,7 @@ class Messages extends Resource
      */
     public function channelMessages(int $guildId, int $channelId, array $params = []): PaginatedResponse
     {
-        return $this->paginate("partner/guilds/{$guildId}/channels/{$channelId}/messages", $params);
+        return $this->paginate("v1/{tenant}/guilds/{$guildId}/channels/{$channelId}/messages", $params);
     }
 
     /**
@@ -109,7 +115,7 @@ class Messages extends Resource
      */
     public function sendInChannel(int $guildId, int $channelId, array $data): array
     {
-        return $this->client->post("partner/guilds/{$guildId}/channels/{$channelId}/messages", $data);
+        return $this->client->post("v1/{tenant}/guilds/{$guildId}/channels/{$channelId}/messages", $data);
     }
 
     /**
@@ -268,7 +274,7 @@ class Messages extends Resource
      */
     public function sendAnnouncement(int $guildId, array $data): array
     {
-        return $this->client->post("partner/guilds/{$guildId}/announcements", $data);
+        return $this->client->post("v1/{tenant}/guilds/{$guildId}/announcements", $data);
     }
 
     /**
@@ -276,7 +282,7 @@ class Messages extends Resource
      */
     public function announcements(int $guildId, array $params = []): PaginatedResponse
     {
-        return $this->paginate("partner/guilds/{$guildId}/announcements", $params);
+        return $this->paginate("v1/{tenant}/guilds/{$guildId}/announcements", $params);
     }
 
     // === Statistics ===

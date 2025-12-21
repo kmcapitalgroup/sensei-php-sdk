@@ -10,10 +10,16 @@ use Sensei\PartnerSDK\Support\PaginatedResponse;
  * Guild/Community management resource
  *
  * Create and manage guilds, members, roles, and channels
+ *
+ * IMPORTANT: This resource requires:
+ * - Bearer Token authentication (user token from signupAndLink/loginAndLink)
+ * - Tenant configuration in the client
+ *
+ * The routes use /v1/{tenant}/guilds for user-owned operations.
  */
 class Guilds extends Resource
 {
-    protected string $basePath = 'v1/partners/guilds';
+    protected string $basePath = 'v1/{tenant}/guilds';
 
     /**
      * List all guilds
